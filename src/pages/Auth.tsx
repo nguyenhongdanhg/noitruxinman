@@ -1,0 +1,211 @@
+import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { School, Loader2 } from 'lucide-react';
+
+export default function Auth() {
+  const { user, loading, signIn, signUp } = useAuth();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Register form state
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerName, setRegisterName] = useState('');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const { error } = await signIn(loginEmail, loginPassword);
+    
+    if (error) {
+      toast({
+        title: 'Lỗi đăng nhập',
+        description: error.message === 'Invalid login credentials' 
+          ? 'Email hoặc mật khẩu không đúng' 
+          : error.message,
+        variant: 'destructive'
+      });
+    } else {
+      toast({
+        title: 'Đăng nhập thành công',
+        description: 'Chào mừng bạn quay lại!'
+      });
+    }
+
+    setIsSubmitting(false);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    if (registerPassword.length < 6) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu phải có ít nhất 6 ký tự',
+        variant: 'destructive'
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const { error } = await signUp(registerEmail, registerPassword, registerName);
+    
+    if (error) {
+      toast({
+        title: 'Lỗi đăng ký',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } else {
+      toast({
+        title: 'Đăng ký thành công',
+        description: 'Tài khoản của bạn đã được tạo. Bạn có thể đăng nhập ngay.'
+      });
+    }
+
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
+              <School className="h-8 w-8 text-primary-foreground" />
+            </div>
+          </div>
+          <div>
+            <CardTitle className="text-2xl font-bold">Quản lý Nội trú</CardTitle>
+            <CardDescription className="mt-2">
+              Trường PTDTNT THCS&THPT Xín Mần
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Đăng nhập</TabsTrigger>
+              <TabsTrigger value="register">Đăng ký</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="login" className="mt-4">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="teacher@school.edu.vn"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Mật khẩu</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    'Đăng nhập'
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="register" className="mt-4">
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-name">Họ và tên</Label>
+                  <Input
+                    id="register-name"
+                    type="text"
+                    placeholder="Nguyễn Văn A"
+                    value={registerName}
+                    onChange={(e) => setRegisterName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-email">Email</Label>
+                  <Input
+                    id="register-email"
+                    type="email"
+                    placeholder="teacher@school.edu.vn"
+                    value={registerEmail}
+                    onChange={(e) => setRegisterEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-password">Mật khẩu</Label>
+                  <Input
+                    id="register-password"
+                    type="password"
+                    placeholder="Ít nhất 6 ký tự"
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    'Đăng ký'
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+        <CardFooter className="flex flex-col text-center text-sm text-muted-foreground">
+          <p>Thiết kế bởi Thầy giáo Nguyễn Hồng Dân</p>
+          <p className="text-primary">Zalo: 0888 770 699</p>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}

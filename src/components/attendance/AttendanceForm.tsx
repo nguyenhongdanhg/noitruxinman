@@ -21,9 +21,10 @@ import { Calendar, CheckCircle2, XCircle, Share2, Save, Users } from 'lucide-rea
 interface AttendanceFormProps {
   type: 'evening_study' | 'boarding' | 'meal';
   title: string;
+  filterClassId?: string;
 }
 
-export function AttendanceForm({ type, title }: AttendanceFormProps) {
+export function AttendanceForm({ type, title, filterClassId }: AttendanceFormProps) {
   const { students, classes, currentUser, reports, setReports } = useApp();
   const { toast } = useToast();
   
@@ -36,9 +37,15 @@ export function AttendanceForm({ type, title }: AttendanceFormProps) {
   const [notes, setNotes] = useState('');
 
   const filteredStudents = useMemo(() => {
-    if (selectedClass === 'all') return students;
-    return students.filter((s) => s.classId === selectedClass);
-  }, [students, selectedClass]);
+    let result = students;
+    // If filterClassId is set (for class teachers), only show their class
+    if (filterClassId) {
+      result = result.filter((s) => s.classId === filterClassId);
+    } else if (selectedClass !== 'all') {
+      result = result.filter((s) => s.classId === selectedClass);
+    }
+    return result;
+  }, [students, selectedClass, filterClassId]);
 
   const selectAll = () => {
     const allIds = new Set(filteredStudents.map((s) => s.id));
