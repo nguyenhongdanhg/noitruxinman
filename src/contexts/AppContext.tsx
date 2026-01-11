@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Student, Teacher, AttendanceRecord, Report } from '@/types';
 import { mockStudents, mockTeachers, classes, schoolInfo } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AppContextType {
   students: Student[];
@@ -19,6 +20,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { user, profile } = useAuth();
+  
   const [students, setStudents] = useState<Student[]>(() => {
     const saved = localStorage.getItem('students');
     return saved ? JSON.parse(saved) : mockStudents;
@@ -39,7 +42,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const currentUser = { id: '1', name: 'Nguyễn Hồng Dân' };
+  // Use authenticated user info if available, otherwise fallback
+  const currentUser = {
+    id: user?.id || '1',
+    name: profile?.full_name || 'Nguyễn Hồng Dân'
+  };
 
   useEffect(() => {
     localStorage.setItem('students', JSON.stringify(students));

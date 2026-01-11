@@ -2,11 +2,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AttendanceForm } from '@/components/attendance/AttendanceForm';
 import { ReportHistory } from '@/components/reports/ReportHistory';
 import { Card, CardContent } from '@/components/ui/card';
-import { Utensils, FileText, Clock, AlertCircle } from 'lucide-react';
+import { Utensils, FileText, Clock, AlertCircle, Shield } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { classes } from '@/data/mockData';
 
 export default function Meals() {
+  const { profile, hasRole } = useAuth();
   const now = new Date();
   const currentHour = now.getHours();
+  
+  const isAdmin = hasRole('admin');
+  const isClassTeacher = hasRole('class_teacher');
+  const teacherClassId = profile?.class_id;
+  const teacherClassName = teacherClassId 
+    ? classes.find(c => c.id === teacherClassId)?.name 
+    : null;
 
   const mealDeadlines = [
     { meal: 'Bữa sáng', deadline: 'Trước 22:00 ngày hôm trước', canRegister: currentHour < 22 },
@@ -25,6 +35,29 @@ export default function Meals() {
           Đăng ký và quản lý bữa ăn cho học sinh nội trú
         </p>
       </div>
+
+      {/* Role Info Card */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-foreground">Quyền truy cập</h3>
+          </div>
+          {isAdmin ? (
+            <p className="text-sm text-muted-foreground">
+              Bạn là <strong>Quản trị viên</strong> - có thể báo cơm cho tất cả các lớp.
+            </p>
+          ) : isClassTeacher && teacherClassName ? (
+            <p className="text-sm text-muted-foreground">
+              Bạn là <strong>Giáo viên chủ nhiệm lớp {teacherClassName}</strong> - chỉ có thể báo cơm cho lớp của mình.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Vui lòng liên hệ quản trị viên để được phân quyền.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Deadline Info */}
       <Card>
@@ -81,7 +114,11 @@ export default function Meals() {
         </TabsList>
 
         <TabsContent value="attendance" className="mt-6">
-          <AttendanceForm type="meal" title="Đăng ký bữa ăn" />
+          <AttendanceForm 
+            type="meal" 
+            title="Đăng ký bữa ăn" 
+            filterClassId={isAdmin ? undefined : teacherClassId || undefined}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="mt-6">
