@@ -12,7 +12,9 @@ export function ExcelImport() {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
-    const headers = ['STT', 'Họ và tên', 'Ngày sinh (DD/MM/YYYY)', 'Lớp', 'Phòng ở', 'Mâm ăn'];
+    // Dùng tab làm separator để tránh lỗi với dữ liệu có dấu phẩy
+    const separator = '\t';
+    const headers = ['STT', 'Họ và tên', 'Ngày sinh', 'Lớp', 'Phòng ở', 'Mâm ăn'];
     const examples = [
       ['1', 'Nguyễn Văn An', '15/05/2010', '6A', 'P101', 'M1'],
       ['2', 'Trần Thị Bình', '20/08/2010', '6A', 'P102', 'M1'],
@@ -20,15 +22,15 @@ export function ExcelImport() {
     ];
 
     const csvContent = [
-      headers.join(','),
-      ...examples.map(row => row.join(','))
+      headers.join(separator),
+      ...examples.map(row => row.join(separator))
     ].join('\n');
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/tab-separated-values;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'mau_danh_sach_hoc_sinh.csv';
+    link.download = 'mau_danh_sach_hoc_sinh.tsv';
     link.click();
     URL.revokeObjectURL(url);
 
@@ -47,12 +49,15 @@ export function ExcelImport() {
     try {
       const text = await file.text();
       const lines = text.split('\n').filter((line) => line.trim());
-      const headers = lines[0].split(',');
-
+      
+      // Tự động detect separator: tab hoặc dấu phẩy
+      const firstLine = lines[0];
+      const separator = firstLine.includes('\t') ? '\t' : ',';
+      
       const newStudents: Student[] = [];
 
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
+        const values = lines[i].split(separator);
         if (values.length >= 5) {
           const name = values[1]?.trim();
           const dobParts = values[2]?.trim().split('/');
@@ -132,7 +137,7 @@ export function ExcelImport() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.tsv,.txt,.xlsx,.xls"
           onChange={handleFileUpload}
           className="hidden"
         />
