@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Users, Shield, UserPlus, Pencil, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap } from 'lucide-react';
 import { classes } from '@/data/mockData';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -24,16 +25,53 @@ interface UserWithRoles {
   roles: AppRole[];
 }
 
+const allRoles: { role: AppRole; label: string; description: string; icon: React.ReactNode }[] = [
+  { 
+    role: 'admin', 
+    label: 'Quản trị viên', 
+    description: 'Toàn quyền quản lý hệ thống',
+    icon: <Shield className="h-4 w-4 text-destructive" />
+  },
+  { 
+    role: 'class_teacher', 
+    label: 'GVCN', 
+    description: 'Báo cơm, xem thống kê lớp',
+    icon: <GraduationCap className="h-4 w-4 text-primary" />
+  },
+  { 
+    role: 'teacher', 
+    label: 'Giáo viên', 
+    description: 'Điểm danh, xem thống kê sỹ số',
+    icon: <Users className="h-4 w-4 text-blue-500" />
+  },
+  { 
+    role: 'accountant', 
+    label: 'Kế toán', 
+    description: 'Xem thống kê bữa ăn',
+    icon: <Calculator className="h-4 w-4 text-green-500" />
+  },
+  { 
+    role: 'kitchen', 
+    label: 'Nhà bếp', 
+    description: 'Xem thống kê bữa ăn',
+    icon: <ChefHat className="h-4 w-4 text-orange-500" />
+  },
+];
+
 const roleLabels: Record<AppRole, string> = {
   admin: 'Quản trị viên',
   teacher: 'Giáo viên',
-  class_teacher: 'GVCN'
+  class_teacher: 'GVCN',
+  accountant: 'Kế toán',
+  kitchen: 'Nhà bếp'
 };
 
-const roleBadgeVariants: Record<AppRole, 'default' | 'secondary' | 'destructive'> = {
+const roleBadgeVariants: Record<AppRole, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   admin: 'destructive',
   teacher: 'secondary',
-  class_teacher: 'default'
+  class_teacher: 'default',
+  accountant: 'outline',
+  kitchen: 'outline'
 };
 
 export default function UserManagement() {
@@ -43,35 +81,34 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<AppRole>('teacher');
+  const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
+  const [editingPhone, setEditingPhone] = useState<string>('');
+  const [editingName, setEditingName] = useState<string>('');
 
   const isAdmin = hasRole('admin');
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Fetch all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*');
 
       if (profilesError) throw profilesError;
 
-      // Fetch all roles (admin can see all)
-      const { data: allRoles, error: rolesError } = await supabase
+      const { data: allRolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('*');
 
       if (rolesError) throw rolesError;
 
-      // Combine profiles with roles
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
         id: profile.id,
         full_name: profile.full_name,
         phone: profile.phone,
         class_id: profile.class_id,
-        roles: (allRoles || [])
+        roles: (allRolesData || [])
           .filter(r => r.user_id === profile.id)
           .map(r => r.role)
       }));
@@ -95,19 +132,43 @@ export default function UserManagement() {
 
   const handleEditUser = (user: UserWithRoles) => {
     setEditingUser(user);
-    setSelectedRole(user.roles[0] || 'teacher');
+    setSelectedRoles(user.roles);
     setSelectedClass(user.class_id || '');
+    setEditingPhone(user.phone || '');
+    setEditingName(user.full_name);
     setEditDialogOpen(true);
+  };
+
+  const handleRoleToggle = (role: AppRole) => {
+    setSelectedRoles(prev => 
+      prev.includes(role) 
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
   };
 
   const handleSaveUser = async () => {
     if (!editingUser || !isAdmin) return;
 
+    if (selectedRoles.length === 0) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng chọn ít nhất một vai trò',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     try {
-      // Update profile with class_id
+      // Update profile with class_id, phone, and name
+      const needsClassId = selectedRoles.includes('class_teacher');
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ class_id: selectedClass || null })
+        .update({ 
+          class_id: needsClassId ? selectedClass || null : null,
+          phone: editingPhone || null,
+          full_name: editingName
+        })
         .eq('id', editingUser.id);
 
       if (profileError) throw profileError;
@@ -120,10 +181,15 @@ export default function UserManagement() {
 
       if (deleteError) throw deleteError;
 
-      // Insert new role
+      // Insert new roles
+      const rolesToInsert = selectedRoles.map(role => ({
+        user_id: editingUser.id,
+        role
+      }));
+
       const { error: insertError } = await supabase
         .from('user_roles')
-        .insert({ user_id: editingUser.id, role: selectedRole });
+        .insert(rolesToInsert);
 
       if (insertError) throw insertError;
 
@@ -158,13 +224,13 @@ export default function UserManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Quản lý tài khoản</h1>
+        <h1 className="text-3xl font-bold">Quản lý tài khoản & Phân quyền</h1>
         <p className="text-muted-foreground mt-2">
-          Phân quyền và quản lý người dùng trong hệ thống
+          Quản lý giáo viên và phân quyền các chức năng trong hệ thống
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng người dùng</CardTitle>
@@ -188,11 +254,33 @@ export default function UserManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">GVCN</CardTitle>
-            <UserPlus className="h-4 w-4 text-primary" />
+            <GraduationCap className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {users.filter(u => u.roles.includes('class_teacher')).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Kế toán</CardTitle>
+            <Calculator className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {users.filter(u => u.roles.includes('accountant')).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Nhà bếp</CardTitle>
+            <ChefHat className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {users.filter(u => u.roles.includes('kitchen')).length}
             </div>
           </CardContent>
         </Card>
@@ -202,13 +290,14 @@ export default function UserManagement() {
         <CardHeader>
           <CardTitle>Danh sách người dùng</CardTitle>
           <CardDescription>
-            Quản lý quyền truy cập của từng người dùng
+            Quản lý quyền truy cập của từng người dùng - bấm vào nút sửa để phân quyền
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">STT</TableHead>
                 <TableHead>Họ và tên</TableHead>
                 <TableHead>Điện thoại</TableHead>
                 <TableHead>Vai trò</TableHead>
@@ -219,19 +308,20 @@ export default function UserManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     Đang tải...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Chưa có người dùng nào
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                users.map((user, index) => (
                   <TableRow key={user.id}>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.phone || '-'}</TableCell>
                     <TableCell>
@@ -264,28 +354,57 @@ export default function UserManagement() {
       </Card>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Chỉnh sửa quyền người dùng</DialogTitle>
+            <DialogTitle>Chỉnh sửa thông tin & quyền</DialogTitle>
             <DialogDescription>
-              Thay đổi vai trò và lớp chủ nhiệm cho {editingUser?.full_name}
+              Cập nhật thông tin và phân quyền cho người dùng
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label>Vai trò</Label>
-              <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="teacher">Giáo viên</SelectItem>
-                  <SelectItem value="class_teacher">GVCN (Giáo viên chủ nhiệm)</SelectItem>
-                  <SelectItem value="admin">Quản trị viên</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Họ và tên</Label>
+              <Input 
+                value={editingName} 
+                onChange={(e) => setEditingName(e.target.value)}
+                placeholder="Nhập họ và tên"
+              />
             </div>
-            {selectedRole === 'class_teacher' && (
+
+            <div className="space-y-2">
+              <Label>Số điện thoại</Label>
+              <Input 
+                value={editingPhone} 
+                onChange={(e) => setEditingPhone(e.target.value)}
+                placeholder="VD: 0912345678"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <Label>Phân quyền chức năng</Label>
+              <div className="space-y-3 rounded-lg border p-4">
+                {allRoles.map(({ role, label, description, icon }) => (
+                  <div key={role} className="flex items-start space-x-3">
+                    <Checkbox
+                      id={role}
+                      checked={selectedRoles.includes(role)}
+                      onCheckedChange={() => handleRoleToggle(role)}
+                    />
+                    <div className="flex-1 grid gap-1">
+                      <div className="flex items-center gap-2">
+                        {icon}
+                        <Label htmlFor={role} className="font-medium cursor-pointer">
+                          {label}
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {selectedRoles.includes('class_teacher') && (
               <div className="space-y-2">
                 <Label>Lớp chủ nhiệm</Label>
                 <Select value={selectedClass} onValueChange={setSelectedClass}>
