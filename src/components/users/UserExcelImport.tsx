@@ -37,9 +37,19 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
-    // Dùng tab làm separator để tránh lỗi với dữ liệu có dấu phẩy
-    const separator = '\t';
-    const headers = ['STT', 'Email', 'Mật khẩu', 'Họ và tên', 'Số điện thoại', 'Vai trò', 'Lớp chủ nhiệm'];
+    // Tạo file CSV với định dạng chuẩn Excel - mỗi thông tin 1 cột riêng
+    const headers = [
+      'A: STT',
+      'B: Email',
+      'C: Mật khẩu (tối thiểu 6 ký tự)',
+      'D: Họ và tên',
+      'E: Số điện thoại',
+      'F: Vai trò (GVCN/Giáo viên/Kế toán/Nhà bếp/Admin)',
+      'G: Lớp chủ nhiệm (nếu là GVCN)'
+    ];
+    
+    const dataHeaders = ['STT', 'Email', 'Mật khẩu', 'Họ và tên', 'Số điện thoại', 'Vai trò', 'Lớp chủ nhiệm'];
+    
     const examples = [
       ['1', 'giaovien1@school.edu.vn', 'matkhau123', 'Nguyễn Văn An', '0912345678', 'GVCN', '6A'],
       ['2', 'giaovien2@school.edu.vn', 'matkhau123', 'Trần Thị Bình', '0923456789', 'Giáo viên', ''],
@@ -47,22 +57,24 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
       ['4', 'bep@school.edu.vn', 'matkhau123', 'Phạm Thị Dung', '0945678901', 'Nhà bếp', ''],
     ];
 
+    // Tạo nội dung với dòng hướng dẫn cột và dữ liệu
     const csvContent = [
-      headers.join(separator),
-      ...examples.map(row => row.join(separator))
+      '# HƯỚNG DẪN CỘT: ' + headers.join(' | '),
+      dataHeaders.join(','),
+      ...examples.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/tab-separated-values;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'mau_danh_sach_tai_khoan.tsv';
+    link.download = 'mau_danh_sach_tai_khoan.csv';
     link.click();
     URL.revokeObjectURL(url);
 
     toast({
       title: 'Tải xuống thành công',
-      description: 'Mẫu danh sách tài khoản đã được tải xuống',
+      description: 'Mẫu danh sách tài khoản đã được tải xuống (file CSV)',
     });
   };
 
@@ -113,13 +125,26 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
         return;
       }
 
-      // Tự động detect separator: tab hoặc dấu phẩy
-      const firstLine = lines[0];
-      const separator = firstLine.includes('\t') ? '\t' : ',';
+      // Tự động detect separator: tab, dấu phẩy hoặc chấm phẩy
+      // Bỏ qua dòng comment bắt đầu bằng #
+      const dataLines = lines.filter(line => !line.trim().startsWith('#'));
+      if (dataLines.length < 2) {
+        toast({
+          title: 'File rỗng',
+          description: 'File không có dữ liệu để nhập',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      const headerLine = dataLines[0];
+      const separator = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
 
       // Skip header row
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(separator).map(v => v.trim());
+      for (let i = 1; i < dataLines.length; i++) {
+        // Xử lý giá trị có dấu ngoặc kép
+        const rawValues = dataLines[i].split(separator);
+        const values = rawValues.map(v => v.trim().replace(/^"|"$/g, ''));
         
         if (values.length < 4) {
           result.failed++;

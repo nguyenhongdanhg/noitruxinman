@@ -12,31 +12,42 @@ export function ExcelImport() {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
-    // Dùng tab làm separator để tránh lỗi với dữ liệu có dấu phẩy
-    const separator = '\t';
-    const headers = ['STT', 'Họ và tên', 'Ngày sinh', 'Lớp', 'Phòng ở', 'Mâm ăn'];
+    // Tạo file CSV với định dạng chuẩn Excel
+    const headers = [
+      'A: STT',
+      'B: Họ và tên', 
+      'C: Ngày sinh (DD/MM/YYYY)',
+      'D: Lớp',
+      'E: Phòng ở',
+      'F: Mâm ăn'
+    ];
+    
+    const dataHeaders = ['STT', 'Họ và tên', 'Ngày sinh', 'Lớp', 'Phòng ở', 'Mâm ăn'];
+    
     const examples = [
       ['1', 'Nguyễn Văn An', '15/05/2010', '6A', 'P101', 'M1'],
       ['2', 'Trần Thị Bình', '20/08/2010', '6A', 'P102', 'M1'],
       ['3', 'Lê Hoàng Cường', '10/03/2010', '6B', 'P103', 'M2'],
     ];
 
+    // Tạo nội dung với dòng hướng dẫn cột và dữ liệu
     const csvContent = [
-      headers.join(separator),
-      ...examples.map(row => row.join(separator))
+      '# HƯỚNG DẪN CỘT: ' + headers.join(' | '),
+      dataHeaders.join(','),
+      ...examples.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/tab-separated-values;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'mau_danh_sach_hoc_sinh.tsv';
+    link.download = 'mau_danh_sach_hoc_sinh.csv';
     link.click();
     URL.revokeObjectURL(url);
 
     toast({
       title: 'Tải xuống thành công',
-      description: 'Mẫu danh sách học sinh đã được tải xuống',
+      description: 'Mẫu danh sách học sinh đã được tải xuống (file CSV)',
     });
   };
 
@@ -50,14 +61,21 @@ export function ExcelImport() {
       const text = await file.text();
       const lines = text.split('\n').filter((line) => line.trim());
       
-      // Tự động detect separator: tab hoặc dấu phẩy
+      // Tự động detect separator: tab, dấu phẩy hoặc chấm phẩy
       const firstLine = lines[0];
-      const separator = firstLine.includes('\t') ? '\t' : ',';
+      // Bỏ qua dòng comment bắt đầu bằng #
+      const dataLines = lines.filter(line => !line.trim().startsWith('#'));
+      if (dataLines.length === 0) return;
+      
+      const headerLine = dataLines[0];
+      const separator = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
       
       const newStudents: Student[] = [];
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(separator);
+      for (let i = 1; i < dataLines.length; i++) {
+        // Xử lý giá trị có dấu ngoặc kép
+        const rawValues = dataLines[i].split(separator);
+        const values = rawValues.map(v => v.trim().replace(/^"|"$/g, ''));
         if (values.length >= 5) {
           const name = values[1]?.trim();
           const dobParts = values[2]?.trim().split('/');
