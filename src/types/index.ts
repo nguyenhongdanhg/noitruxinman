@@ -43,7 +43,7 @@ export interface Report {
   totalStudents: number;
   presentCount: number;
   absentCount: number;
-  absentStudents: { studentId: string; name: string; classId: string; room?: string; reason?: string }[];
+  absentStudents: { studentId: string; name: string; classId: string; room?: string; mealGroup?: string; reason?: string; permission?: 'P' | 'KP' }[];
   notes?: string;
   reporterId: string;
   reporterName: string;
