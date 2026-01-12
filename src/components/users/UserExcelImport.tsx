@@ -37,6 +37,8 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
+    // Dùng tab làm separator để tránh lỗi với dữ liệu có dấu phẩy
+    const separator = '\t';
     const headers = ['STT', 'Email', 'Mật khẩu', 'Họ và tên', 'Số điện thoại', 'Vai trò', 'Lớp chủ nhiệm'];
     const examples = [
       ['1', 'giaovien1@school.edu.vn', 'matkhau123', 'Nguyễn Văn An', '0912345678', 'GVCN', '6A'],
@@ -46,15 +48,15 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
     ];
 
     const csvContent = [
-      headers.join(','),
-      ...examples.map(row => row.join(','))
+      headers.join(separator),
+      ...examples.map(row => row.join(separator))
     ].join('\n');
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/tab-separated-values;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'mau_danh_sach_tai_khoan.csv';
+    link.download = 'mau_danh_sach_tai_khoan.tsv';
     link.click();
     URL.revokeObjectURL(url);
 
@@ -111,9 +113,13 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
         return;
       }
 
+      // Tự động detect separator: tab hoặc dấu phẩy
+      const firstLine = lines[0];
+      const separator = firstLine.includes('\t') ? '\t' : ',';
+
       // Skip header row
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
+        const values = lines[i].split(separator).map(v => v.trim());
         
         if (values.length < 4) {
           result.failed++;
@@ -271,7 +277,7 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
+          accept=".csv,.tsv,.txt"
           onChange={handleFileUpload}
           className="hidden"
         />

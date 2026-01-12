@@ -130,37 +130,51 @@ export function StatsSummaryCard({
               </div>
             )}
             
-            {/* Absent Students List */}
+            {/* Absent Students List - Table Format */}
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">Học sinh vắng:</p>
-              <div className="space-y-1">
-                {absentList.map((student, idx) => (
-                  <div 
-                    key={idx} 
-                    className="text-sm flex flex-wrap items-center gap-1 p-2 rounded bg-muted/50"
-                  >
-                    <span className="font-medium">{student.name}</span>
-                    {student.className && (
-                      <span className="text-xs text-muted-foreground">(Lớp: {student.className})</span>
-                    )}
-                    {student.mealGroup && (
-                      <span className="text-xs text-muted-foreground">(Mâm: {student.mealGroup})</span>
-                    )}
-                    {student.permission && (
-                      <span className={cn(
-                        "text-xs px-1.5 py-0.5 rounded font-medium",
-                        student.permission === 'P' 
-                          ? "bg-success/10 text-success" 
-                          : "bg-destructive/10 text-destructive"
-                      )}>
-                        {student.permission === 'P' ? 'Có phép' : 'Không phép'}
-                      </span>
-                    )}
-                    {student.reason && (
-                      <span className="text-xs text-muted-foreground italic">- {student.reason}</span>
-                    )}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground w-8">#</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground min-w-[120px]">Họ tên</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lớp</th>
+                      {type === 'meal' && (
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Mâm</th>
+                      )}
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Phép</th>
+                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lý do</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {absentList.map((student, idx) => (
+                      <tr key={idx} className="border-b border-border/50 last:border-0">
+                        <td className="py-2 px-2 text-muted-foreground">{idx + 1}</td>
+                        <td className="py-2 px-2 font-medium">{student.name}</td>
+                        <td className="py-2 px-2">{student.className || '-'}</td>
+                        {type === 'meal' && (
+                          <td className="py-2 px-2">{student.mealGroup || '-'}</td>
+                        )}
+                        <td className="py-2 px-2">
+                          {student.permission ? (
+                            <span className={cn(
+                              "text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                              student.permission === 'P' 
+                                ? "bg-success/10 text-success" 
+                                : "bg-destructive/10 text-destructive"
+                            )}>
+                              {student.permission === 'P' ? 'Có phép' : 'K.phép'}
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground italic max-w-[150px] truncate">
+                          {student.reason || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
