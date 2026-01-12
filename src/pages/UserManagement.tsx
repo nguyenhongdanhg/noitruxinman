@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap } from 'lucide-react';
 import { classes } from '@/data/mockData';
+import { UserExcelImport } from '@/components/users/UserExcelImport';
+import { AddUserDialog } from '@/components/users/AddUserDialog';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -81,6 +83,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [editingPhone, setEditingPhone] = useState<string>('');
@@ -228,6 +231,26 @@ export default function UserManagement() {
         <p className="text-muted-foreground mt-2">
           Quản lý giáo viên và phân quyền các chức năng trong hệ thống
         </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <UserExcelImport onImportComplete={fetchUsers} />
+        
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <UserPlus className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Thêm tài khoản</h3>
+              <p className="text-sm text-muted-foreground">Tạo tài khoản mới thủ công</p>
+            </div>
+          </div>
+          <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Thêm tài khoản mới
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
@@ -432,6 +455,12 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddUserDialog 
+        open={addDialogOpen} 
+        onOpenChange={setAddDialogOpen} 
+        onUserAdded={fetchUsers} 
+      />
     </div>
   );
 }

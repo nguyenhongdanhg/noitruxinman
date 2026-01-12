@@ -12,12 +12,19 @@ export function ExcelImport() {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
-    const template = `STT,Họ và tên,Ngày sinh (DD/MM/YYYY),Lớp,Phòng ở,Mâm ăn
-1,Nguyễn Văn An,15/05/2010,6A,P101,M1
-2,Trần Thị Bình,20/08/2010,6A,P102,M1
-3,Lê Hoàng Cường,10/03/2010,6B,P103,M2`;
+    const headers = ['STT', 'Họ và tên', 'Ngày sinh (DD/MM/YYYY)', 'Lớp', 'Phòng ở', 'Mâm ăn'];
+    const examples = [
+      ['1', 'Nguyễn Văn An', '15/05/2010', '6A', 'P101', 'M1'],
+      ['2', 'Trần Thị Bình', '20/08/2010', '6A', 'P102', 'M1'],
+      ['3', 'Lê Hoàng Cường', '10/03/2010', '6B', 'P103', 'M2'],
+    ];
 
-    const blob = new Blob(['\ufeff' + template], { type: 'text/csv;charset=utf-8' });
+    const csvContent = [
+      headers.join(','),
+      ...examples.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
