@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Calendar, CheckCircle2, XCircle, Share2, Save, Users } from 'lucide-react';
+import { AbsentStudentRow } from './AbsentStudentRow';
 
 interface AttendanceFormProps {
   type: 'evening_study' | 'boarding' | 'meal';
@@ -34,6 +35,7 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
   const [mealType, setMealType] = useState<string>('');
   const [presentStudents, setPresentStudents] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [permissions, setPermissions] = useState<Record<string, 'P' | 'KP'>>({});
   const [notes, setNotes] = useState('');
 
   const filteredStudents = useMemo(() => {
@@ -109,7 +111,9 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
         name: s.name,
         classId: s.classId,
         room: s.room,
+        mealGroup: s.mealGroup,
         reason: reasons[s.id] || '',
+        permission: permissions[s.id] || 'KP',
       })),
       notes,
       reporterId: currentUser.id,
@@ -148,11 +152,12 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
         groupedByClass[s.classId].push(s);
       });
 
-      Object.entries(groupedByClass).forEach(([classId, students]) => {
+      Object.entries(groupedByClass).forEach(([classId, classStudents]) => {
         message += `\n🏫 Lớp ${getClassName(classId)}:\n`;
-        students.forEach((s, i) => {
-          const reason = reasons[s.id] ? ` (${reasons[s.id]})` : '';
-          message += `  ${i + 1}. ${s.name} - Phòng ${s.room}${reason}\n`;
+        classStudents.forEach((s, i) => {
+          const reason = reasons[s.id] ? ` - ${reasons[s.id]}` : '';
+          const perm = permissions[s.id] === 'P' ? '(Có phép)' : '(Không phép)';
+          message += `  ${i + 1}. ${s.name} - Phòng ${s.room} ${perm}${reason}\n`;
         });
       });
     }
@@ -253,32 +258,34 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
 
       {/* Student List */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Users className="h-5 w-5 text-primary" />
               Danh sách học sinh ({filteredStudents.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={selectAll}>
+              <Button variant="outline" size="sm" onClick={selectAll} className="flex-1 sm:flex-initial">
                 <CheckCircle2 className="h-4 w-4 mr-1" />
-                Chọn tất cả
+                <span className="hidden sm:inline">Chọn tất cả</span>
+                <span className="sm:hidden">Chọn</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={deselectAll}>
+              <Button variant="outline" size="sm" onClick={deselectAll} className="flex-1 sm:flex-initial">
                 <XCircle className="h-4 w-4 mr-1" />
-                Bỏ chọn
+                <span className="hidden sm:inline">Bỏ chọn</span>
+                <span className="sm:hidden">Bỏ</span>
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <CardContent className="pt-0 sm:pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
             {filteredStudents.map((student) => {
               const isPresent = presentStudents.has(student.id);
               return (
                 <div
                   key={student.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${
                     isPresent
                       ? 'bg-success/10 border-success/30'
                       : 'bg-destructive/5 border-destructive/20'
@@ -290,15 +297,15 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
                     onCheckedChange={() => toggleStudent(student.id)}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{student.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Lớp {getClassName(student.classId)} • Phòng {student.room}
+                    <p className="font-medium text-foreground truncate text-sm sm:text-base">{student.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {getClassName(student.classId)} • P.{student.room} • M.{student.mealGroup}
                     </p>
                   </div>
                   {isPresent ? (
-                    <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
                   ) : (
-                    <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                    <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
                   )}
                 </div>
               );
@@ -310,29 +317,27 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
       {/* Absent Students with Reasons */}
       {absentStudents.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-destructive text-base sm:text-lg">
               <XCircle className="h-5 w-5" />
               Học sinh vắng ({absentStudents.length})
             </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              P = Có phép, KP = Không phép
+            </p>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="pt-0">
+            <div className="space-y-2 sm:space-y-3">
               {absentStudents.map((student) => (
-                <div key={student.id} className="flex items-center gap-4 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground">{student.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Lớp {getClassName(student.classId)} • Phòng {student.room}
-                    </p>
-                  </div>
-                  <Input
-                    placeholder="Lý do vắng..."
-                    value={reasons[student.id] || ''}
-                    onChange={(e) => setReasons({ ...reasons, [student.id]: e.target.value })}
-                    className="w-48"
-                  />
-                </div>
+                <AbsentStudentRow
+                  key={student.id}
+                  student={student}
+                  getClassName={getClassName}
+                  reason={reasons[student.id] || ''}
+                  permission={permissions[student.id] || 'KP'}
+                  onReasonChange={(value) => setReasons({ ...reasons, [student.id]: value })}
+                  onPermissionChange={(value) => setPermissions({ ...permissions, [student.id]: value })}
+                />
               ))}
             </div>
           </CardContent>
@@ -341,28 +346,30 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
 
       {/* Summary & Actions */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-foreground">{filteredStudents.length}</p>
-                <p className="text-sm text-muted-foreground">Tổng số</p>
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col gap-4">
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-6">
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/50">
+                <p className="text-xl sm:text-3xl font-bold text-foreground">{filteredStudents.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Tổng số</p>
               </div>
-              <div className="text-center">
-                <p className="text-3xl font-bold text-success">{presentStudents.size}</p>
-                <p className="text-sm text-muted-foreground">Có mặt</p>
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
+                <p className="text-xl sm:text-3xl font-bold text-success">{presentStudents.size}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Có mặt</p>
               </div>
-              <div className="text-center">
-                <p className="text-3xl font-bold text-destructive">{absentStudents.length}</p>
-                <p className="text-sm text-muted-foreground">Vắng</p>
+              <div className="text-center p-2 sm:p-3 rounded-lg bg-destructive/10">
+                <p className="text-xl sm:text-3xl font-bold text-destructive">{absentStudents.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Vắng</p>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
               <Button
                 onClick={saveReport}
                 disabled={!canSubmit()}
-                className="gap-2 gradient-primary"
+                className="gap-2 gradient-primary w-full sm:w-auto"
               >
                 <Save className="h-4 w-4" />
                 Lưu báo cáo
@@ -370,7 +377,7 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
               <Button
                 variant="outline"
                 onClick={shareToZalo}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
                 <Share2 className="h-4 w-4" />
                 Chia sẻ Zalo
@@ -386,7 +393,7 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
             </div>
           )}
 
-          <div className="mt-4 text-sm text-muted-foreground">
+          <div className="mt-4 text-xs sm:text-sm text-muted-foreground">
             Người báo cáo: <span className="font-medium text-foreground">{currentUser.name}</span>
           </div>
         </CardContent>
