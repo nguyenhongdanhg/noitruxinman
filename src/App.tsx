@@ -10,7 +10,6 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
-import Teachers from "./pages/Teachers";
 import EveningStudy from "./pages/EveningStudy";
 import Boarding from "./pages/Boarding";
 import Meals from "./pages/Meals";
@@ -48,16 +47,6 @@ const App = () => (
                   <ProtectedRoute>
                     <MainLayout>
                       <Students />
-                    </MainLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/teachers"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout>
-                      <Teachers />
                     </MainLayout>
                   </ProtectedRoute>
                 }

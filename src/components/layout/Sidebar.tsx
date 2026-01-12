@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   Users,
-  GraduationCap,
   BookOpen,
   Home,
   Utensils,
@@ -16,6 +15,9 @@ import {
   School,
   UserCog,
   LogOut,
+  Calculator,
+  ChefHat,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,24 +25,42 @@ import { Badge } from '@/components/ui/badge';
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { hasRole, canAccessMeals, profile, signOut } = useAuth();
+  const { hasRole, canAccessMeals, canAccessMealStats, canAccessAttendance, profile, signOut } = useAuth();
 
   const isAdmin = hasRole('admin');
-  const canSeeMeals = canAccessMeals();
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Tổng quan', path: '/', show: true },
     { icon: Users, label: 'Học sinh', path: '/students', show: true },
-    { icon: GraduationCap, label: 'Giáo viên', path: '/teachers', show: true },
-    { icon: BookOpen, label: 'Điểm danh tự học', path: '/evening-study', show: true },
-    { icon: Home, label: 'Điểm danh nội trú', path: '/boarding', show: true },
-    { icon: Utensils, label: 'Báo cáo bữa ăn', path: '/meals', show: canSeeMeals },
+    { icon: BookOpen, label: 'Điểm danh tự học', path: '/evening-study', show: canAccessAttendance() },
+    { icon: Home, label: 'Điểm danh nội trú', path: '/boarding', show: canAccessAttendance() },
+    { icon: Utensils, label: 'Báo cáo bữa ăn', path: '/meals', show: canAccessMeals() },
     { icon: BarChart3, label: 'Thống kê', path: '/statistics', show: true },
     { icon: UserCog, label: 'Quản lý tài khoản', path: '/users', show: isAdmin },
     { icon: Settings, label: 'Cài đặt', path: '/settings', show: true },
   ];
 
   const visibleMenuItems = menuItems.filter(item => item.show);
+
+  const getRoleBadges = () => {
+    const badges = [];
+    if (hasRole('admin')) {
+      badges.push(<Badge key="admin" variant="destructive" className="text-xs">Admin</Badge>);
+    }
+    if (hasRole('class_teacher')) {
+      badges.push(<Badge key="class_teacher" variant="default" className="text-xs">GVCN</Badge>);
+    }
+    if (hasRole('accountant')) {
+      badges.push(<Badge key="accountant" className="text-xs bg-green-500">Kế toán</Badge>);
+    }
+    if (hasRole('kitchen')) {
+      badges.push(<Badge key="kitchen" className="text-xs bg-orange-500">Nhà bếp</Badge>);
+    }
+    if (badges.length === 0 && hasRole('teacher')) {
+      badges.push(<Badge key="teacher" variant="secondary" className="text-xs">Giáo viên</Badge>);
+    }
+    return badges;
+  };
 
   return (
     <aside
@@ -79,16 +99,8 @@ export function Sidebar() {
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {profile.full_name}
             </p>
-            <div className="flex gap-1 mt-1">
-              {hasRole('admin') && (
-                <Badge variant="destructive" className="text-xs">Admin</Badge>
-              )}
-              {hasRole('class_teacher') && (
-                <Badge variant="default" className="text-xs">GVCN</Badge>
-              )}
-              {hasRole('teacher') && !hasRole('admin') && !hasRole('class_teacher') && (
-                <Badge variant="secondary" className="text-xs">Giáo viên</Badge>
-              )}
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {getRoleBadges()}
             </div>
           </div>
         </div>

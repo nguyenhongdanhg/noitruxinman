@@ -24,6 +24,8 @@ interface AuthContextType {
   hasRole: (role: AppRole) => boolean;
   isClassTeacher: (classId: string) => boolean;
   canAccessMeals: () => boolean;
+  canAccessMealStats: () => boolean;
+  canAccessAttendance: () => boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -145,9 +147,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return hasRole('class_teacher') && profile?.class_id === classId;
   };
 
+  // GVCN và Admin có thể báo cơm
   const canAccessMeals = (): boolean => {
-    // Admin can always access, class_teacher can access for their class
     return hasRole('admin') || hasRole('class_teacher');
+  };
+
+  // GVCN, Admin, Kế toán, Nhà bếp có thể xem thống kê bữa ăn
+  const canAccessMealStats = (): boolean => {
+    return hasRole('admin') || hasRole('class_teacher') || hasRole('accountant') || hasRole('kitchen');
+  };
+
+  // Giáo viên, GVCN, Admin có thể điểm danh và xem thống kê sỹ số
+  const canAccessAttendance = (): boolean => {
+    return hasRole('admin') || hasRole('class_teacher') || hasRole('teacher');
   };
 
   return (
@@ -164,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasRole,
         isClassTeacher,
         canAccessMeals,
+        canAccessMealStats,
+        canAccessAttendance,
         refreshProfile
       }}
     >
