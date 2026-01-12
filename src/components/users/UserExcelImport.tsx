@@ -1,0 +1,303 @@
+import { useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+import { Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { classes } from '@/data/mockData';
+
+type AppRole = Database['public']['Enums']['app_role'];
+
+interface ImportResult {
+  success: number;
+  failed: number;
+  errors: string[];
+}
+
+const roleMapping: Record<string, AppRole> = {
+  'admin': 'admin',
+  'quản trị': 'admin',
+  'gvcn': 'class_teacher',
+  'chủ nhiệm': 'class_teacher',
+  'giáo viên': 'teacher',
+  'gv': 'teacher',
+  'kế toán': 'accountant',
+  'ketoan': 'accountant',
+  'nhà bếp': 'kitchen',
+  'bếp': 'kitchen',
+};
+
+interface UserExcelImportProps {
+  onImportComplete: () => void;
+}
+
+export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const downloadTemplate = () => {
+    const headers = ['STT', 'Email', 'Mật khẩu', 'Họ và tên', 'Số điện thoại', 'Vai trò', 'Lớp chủ nhiệm'];
+    const examples = [
+      ['1', 'giaovien1@school.edu.vn', 'matkhau123', 'Nguyễn Văn An', '0912345678', 'GVCN', '6A'],
+      ['2', 'giaovien2@school.edu.vn', 'matkhau123', 'Trần Thị Bình', '0923456789', 'Giáo viên', ''],
+      ['3', 'ketoan@school.edu.vn', 'matkhau123', 'Lê Văn Cường', '0934567890', 'Kế toán', ''],
+      ['4', 'bep@school.edu.vn', 'matkhau123', 'Phạm Thị Dung', '0945678901', 'Nhà bếp', ''],
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...examples.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'mau_danh_sach_tai_khoan.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Tải xuống thành công',
+      description: 'Mẫu danh sách tài khoản đã được tải xuống',
+    });
+  };
+
+  const parseRoles = (roleString: string): AppRole[] => {
+    const roles: AppRole[] = [];
+    const roleParts = roleString.toLowerCase().split(/[,;|]+/).map(r => r.trim());
+    
+    for (const part of roleParts) {
+      const mappedRole = roleMapping[part];
+      if (mappedRole && !roles.includes(mappedRole)) {
+        roles.push(mappedRole);
+      }
+    }
+    
+    // Default to teacher if no valid role found
+    if (roles.length === 0) {
+      roles.push('teacher');
+    }
+    
+    return roles;
+  };
+
+  const parseClassId = (classStr: string): string | null => {
+    if (!classStr || classStr.trim() === '') return null;
+    
+    const normalized = classStr.trim().toLowerCase().replace(/\s+/g, '');
+    const found = classes.find(c => c.id === normalized || c.name.toLowerCase() === normalized);
+    return found ? found.id : null;
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    const result: ImportResult = { success: 0, failed: 0, errors: [] };
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        toast({
+          title: 'File rỗng',
+          description: 'File không có dữ liệu để nhập',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Skip header row
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        
+        if (values.length < 4) {
+          result.failed++;
+          result.errors.push(`Dòng ${i + 1}: Thiếu dữ liệu`);
+          continue;
+        }
+
+        const email = values[1]?.trim();
+        const password = values[2]?.trim();
+        const fullName = values[3]?.trim();
+        const phone = values[4]?.trim() || null;
+        const roleStr = values[5]?.trim() || 'Giáo viên';
+        const classStr = values[6]?.trim() || '';
+
+        // Validate required fields
+        if (!email || !password || !fullName) {
+          result.failed++;
+          result.errors.push(`Dòng ${i + 1}: Thiếu email, mật khẩu hoặc họ tên`);
+          continue;
+        }
+
+        if (password.length < 6) {
+          result.failed++;
+          result.errors.push(`Dòng ${i + 1}: Mật khẩu phải có ít nhất 6 ký tự`);
+          continue;
+        }
+
+        try {
+          // Create user via Supabase Auth
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: window.location.origin,
+              data: {
+                full_name: fullName
+              }
+            }
+          });
+
+          if (authError) {
+            result.failed++;
+            result.errors.push(`Dòng ${i + 1}: ${authError.message}`);
+            continue;
+          }
+
+          if (!authData.user) {
+            result.failed++;
+            result.errors.push(`Dòng ${i + 1}: Không thể tạo tài khoản`);
+            continue;
+          }
+
+          const userId = authData.user.id;
+          const roles = parseRoles(roleStr);
+          const classId = roles.includes('class_teacher') ? parseClassId(classStr) : null;
+
+          // Update profile with additional info
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+              phone, 
+              class_id: classId,
+              full_name: fullName
+            })
+            .eq('id', userId);
+
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+          }
+
+          // Insert roles
+          const rolesToInsert = roles.map(role => ({
+            user_id: userId,
+            role
+          }));
+
+          const { error: rolesError } = await supabase
+            .from('user_roles')
+            .insert(rolesToInsert);
+
+          if (rolesError) {
+            console.error('Roles insert error:', rolesError);
+          }
+
+          result.success++;
+        } catch (err) {
+          result.failed++;
+          result.errors.push(`Dòng ${i + 1}: Lỗi không xác định`);
+        }
+      }
+
+      if (result.success > 0) {
+        toast({
+          title: 'Nhập dữ liệu hoàn tất',
+          description: `Thành công: ${result.success} tài khoản${result.failed > 0 ? `, Thất bại: ${result.failed}` : ''}`,
+        });
+        onImportComplete();
+      } else {
+        toast({
+          title: 'Không thể nhập dữ liệu',
+          description: result.errors.length > 0 ? result.errors[0] : 'Không có tài khoản nào được tạo',
+          variant: 'destructive',
+        });
+      }
+
+      if (result.errors.length > 0) {
+        console.log('Import errors:', result.errors);
+      }
+    } catch (error) {
+      console.error('File read error:', error);
+      toast({
+        title: 'Lỗi đọc file',
+        description: 'Không thể đọc file. Vui lòng kiểm tra định dạng CSV.',
+        variant: 'destructive',
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  return (
+    <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+          <FileSpreadsheet className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-foreground">Nhập tài khoản từ Excel</h3>
+          <p className="text-sm text-muted-foreground">Tải lên file CSV để tạo nhiều tài khoản</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" onClick={downloadTemplate} className="gap-2">
+          <Download className="h-4 w-4" />
+          Tải mẫu nhập
+        </Button>
+
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+          className="gap-2"
+        >
+          {importing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          {importing ? 'Đang nhập...' : 'Nhập từ file'}
+        </Button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+      </div>
+
+      <div className="mt-4 rounded-lg bg-muted/50 p-4">
+        <p className="text-sm font-medium text-foreground mb-2">Hướng dẫn:</p>
+        <ul className="text-sm text-muted-foreground space-y-1">
+          <li className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            Cột bắt buộc: Email, Mật khẩu, Họ và tên
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            Vai trò: GVCN, Giáo viên, Kế toán, Nhà bếp, Admin
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            Lớp chủ nhiệm chỉ cần điền khi vai trò là GVCN
+          </li>
+          <li className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
+            Mật khẩu phải có ít nhất 6 ký tự
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}
