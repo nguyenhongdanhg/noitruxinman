@@ -181,9 +181,10 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
               </TableHead>
               <TableHead className="w-12 text-center">STT</TableHead>
               <TableHead>Họ và tên</TableHead>
+              <TableHead>Ngày sinh</TableHead>
               <TableHead>Lớp</TableHead>
-              <TableHead>Giới tính</TableHead>
-              <TableHead>SĐT Phụ huynh</TableHead>
+              <TableHead>Phòng ở</TableHead>
+              <TableHead>Mâm ăn</TableHead>
               {canEditDelete && <TableHead className="w-24 text-center">Thao tác</TableHead>}
             </TableRow>
           </TableHeader>
@@ -202,13 +203,18 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
                 </TableCell>
                 <TableCell className="text-center font-medium">{index + 1}</TableCell>
                 <TableCell className="font-medium">{student.name}</TableCell>
+                <TableCell>{student.dateOfBirth || '-'}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                     {getClassName(student.classId)}
                   </span>
                 </TableCell>
-                <TableCell>{student.gender || '-'}</TableCell>
-                <TableCell>{student.parentPhone || '-'}</TableCell>
+                <TableCell>{student.room || '-'}</TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center rounded-full bg-accent/50 px-2.5 py-0.5 text-xs font-medium">
+                    {student.mealGroup || 'M1'}
+                  </span>
+                </TableCell>
                 {canEditDelete && (
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
