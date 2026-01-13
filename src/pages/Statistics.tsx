@@ -191,13 +191,17 @@ export default function Statistics() {
     // Create workbook
     const wb = XLSX.utils.book_new();
     
-    // Summary sheet
+    // Get unique meal groups
+    const mealGroups = [...new Set(students.map(s => s.mealGroup).filter(Boolean))];
+    
+    // Summary sheet with detailed stats by day
     const summaryData: any[][] = [
       [`BÁO CÁO THỐNG KÊ BỮA ĂN - TOÀN TRƯỜNG`],
       [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
       [`Xuất lúc: ${format(new Date(), 'HH:mm dd/MM/yyyy')}`],
       [],
-      ['Ngày', 'Bữa sáng - Có mặt', 'Bữa sáng - Vắng', 'Bữa trưa - Có mặt', 'Bữa trưa - Vắng', 'Bữa tối - Có mặt', 'Bữa tối - Vắng'],
+      ['TỔNG HỢP THEO NGÀY'],
+      ['Ngày', 'Bữa sáng - Tổng ăn', 'Bữa sáng - Vắng', 'Bữa trưa - Tổng ăn', 'Bữa trưa - Vắng', 'Bữa tối - Tổng ăn', 'Bữa tối - Vắng'],
     ];
 
     days.forEach(day => {
@@ -217,6 +221,93 @@ export default function Statistics() {
         dinner?.presentCount || 0,
         dinner?.absentCount || 0,
       ]);
+    });
+
+    // Add detailed stats by class for each day
+    summaryData.push([]);
+    summaryData.push(['CHI TIẾT THEO LỚP']);
+    
+    days.forEach(day => {
+      const dayStr = format(day, 'yyyy-MM-dd');
+      const dayReports = mealReports.filter(r => r.date === dayStr);
+      
+      if (dayReports.length > 0) {
+        summaryData.push([]);
+        summaryData.push([`Ngày ${format(day, 'dd/MM/yyyy')}`]);
+        summaryData.push(['Lớp', 'Tổng HS', 'Bữa sáng - Ăn', 'Bữa sáng - Vắng', 'Bữa trưa - Ăn', 'Bữa trưa - Vắng', 'Bữa tối - Ăn', 'Bữa tối - Vắng']);
+        
+        classes.forEach(cls => {
+          const classStudents = students.filter(s => s.classId === cls.id);
+          if (classStudents.length === 0) return;
+          
+          const breakfast = dayReports.find(r => r.mealType === 'breakfast');
+          const lunch = dayReports.find(r => r.mealType === 'lunch');
+          const dinner = dayReports.find(r => r.mealType === 'dinner');
+          
+          const breakfastAbsent = breakfast?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+          const lunchAbsent = lunch?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+          const dinnerAbsent = dinner?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+          
+          summaryData.push([
+            cls.name,
+            classStudents.length,
+            classStudents.length - breakfastAbsent,
+            breakfastAbsent,
+            classStudents.length - lunchAbsent,
+            lunchAbsent,
+            classStudents.length - dinnerAbsent,
+            dinnerAbsent,
+          ]);
+        });
+      }
+    });
+
+    // Add detailed stats by meal group for each day
+    summaryData.push([]);
+    summaryData.push(['CHI TIẾT THEO MÂM ĂN']);
+    
+    days.forEach(day => {
+      const dayStr = format(day, 'yyyy-MM-dd');
+      const dayReports = mealReports.filter(r => r.date === dayStr);
+      
+      if (dayReports.length > 0) {
+        summaryData.push([]);
+        summaryData.push([`Ngày ${format(day, 'dd/MM/yyyy')}`]);
+        summaryData.push(['Mâm ăn', 'Tổng HS', 'Bữa sáng - Ăn', 'Bữa sáng - Vắng', 'Bữa trưa - Ăn', 'Bữa trưa - Vắng', 'Bữa tối - Ăn', 'Bữa tối - Vắng']);
+        
+        mealGroups.forEach(group => {
+          const groupStudents = students.filter(s => s.mealGroup === group);
+          if (groupStudents.length === 0) return;
+          
+          const breakfast = dayReports.find(r => r.mealType === 'breakfast');
+          const lunch = dayReports.find(r => r.mealType === 'lunch');
+          const dinner = dayReports.find(r => r.mealType === 'dinner');
+          
+          const breakfastAbsent = breakfast?.absentStudents.filter(a => {
+            const student = students.find(s => s.id === a.studentId);
+            return student?.mealGroup === group;
+          }).length || 0;
+          const lunchAbsent = lunch?.absentStudents.filter(a => {
+            const student = students.find(s => s.id === a.studentId);
+            return student?.mealGroup === group;
+          }).length || 0;
+          const dinnerAbsent = dinner?.absentStudents.filter(a => {
+            const student = students.find(s => s.id === a.studentId);
+            return student?.mealGroup === group;
+          }).length || 0;
+          
+          summaryData.push([
+            `Mâm ${group}`,
+            groupStudents.length,
+            groupStudents.length - breakfastAbsent,
+            breakfastAbsent,
+            groupStudents.length - lunchAbsent,
+            lunchAbsent,
+            groupStudents.length - dinnerAbsent,
+            dinnerAbsent,
+          ]);
+        });
+      }
     });
 
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);

@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Image, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Image, Share2, Filter } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRef, useState } from 'react';
@@ -9,6 +9,13 @@ import html2canvas from 'html2canvas';
 import { useApp } from '@/contexts/AppContext';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface StatsSummaryCardProps {
   icon: LucideIcon;
@@ -61,6 +68,7 @@ export function StatsSummaryCard({
   const { schoolInfo, currentUser } = useApp();
   const reportRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [permissionFilter, setPermissionFilter] = useState<'all' | 'P' | 'KP'>('all');
 
   const currentDateTime = format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi });
   const reporter = reporterName || currentUser.name;
@@ -74,16 +82,37 @@ export function StatsSummaryCard({
     }
   };
 
+  // Filtered absent list based on permission filter
+  const filteredAbsentList = absentList.filter(student => {
+    if (permissionFilter === 'all') return true;
+    return student.permission === permissionFilter;
+  });
+
   const exportAsImage = async () => {
-    if (!reportRef.current) return;
-    
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(reportRef.current, {
+      // Create a temporary container for rendering
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.backgroundColor = '#ffffff';
+      container.style.width = '800px';
+      container.style.fontFamily = 'Arial, sans-serif';
+      container.style.padding = '24px';
+      
+      // Build the report HTML
+      container.innerHTML = buildReportHTML();
+      document.body.appendChild(container);
+      
+      const canvas = await html2canvas(container, {
         backgroundColor: '#ffffff',
         scale: 2,
         useCORS: true,
+        logging: false,
       });
+      
+      document.body.removeChild(container);
       
       const link = document.createElement('a');
       const fileName = `baocao_${type}_${date.replace(/\//g, '')}.png`;
@@ -96,6 +125,7 @@ export function StatsSummaryCard({
         description: `Đã tải xuống ${fileName}`,
       });
     } catch (error) {
+      console.error('Export error:', error);
       toast({
         title: 'Lỗi xuất ảnh',
         description: 'Không thể xuất báo cáo dạng ảnh',
@@ -103,6 +133,134 @@ export function StatsSummaryCard({
       });
     }
     setIsExporting(false);
+  };
+
+  const buildReportHTML = () => {
+    const schoolName = schoolInfo?.name || 'TRƯỜNG PTDTNT THCS&THPT XÍN MẦN';
+    const reportTitle = getReportTitle();
+    
+    let tableRows = '';
+    if (type === 'study') {
+      tableRows = absentList.map((s, idx) => `
+        <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px;">${s.name}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${s.className || '-'}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">
+            <span style="color: ${s.permission === 'P' ? '#16a34a' : '#dc2626'}; font-weight: 500;">
+              ${s.permission === 'P' ? 'Có phép' : 'Không phép'}
+            </span>
+          </td>
+          <td style="border: 1px solid #9ca3af; padding: 8px;">${s.reason || '-'}</td>
+        </tr>
+      `).join('');
+    } else if (type === 'boarding') {
+      tableRows = absentList.map((s, idx) => `
+        <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px;">${s.name}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${s.className || '-'}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${s.room || '-'}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">
+            <span style="color: ${s.permission === 'P' ? '#16a34a' : '#dc2626'}; font-weight: 500;">
+              ${s.permission === 'P' ? 'Có phép' : 'Không phép'}
+            </span>
+          </td>
+          <td style="border: 1px solid #9ca3af; padding: 8px;">${s.reason || '-'}</td>
+        </tr>
+      `).join('');
+    } else if (type === 'meal') {
+      tableRows = absentList.map((s, idx) => `
+        <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px;">${s.name}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${s.className || '-'}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">${s.mealGroup || '-'}</td>
+          <td style="border: 1px solid #9ca3af; padding: 8px; text-align: center;">
+            <span style="color: ${s.permission === 'P' ? '#16a34a' : '#dc2626'}; font-weight: 500;">
+              ${s.permission === 'P' ? 'Có phép' : 'Không phép'}
+            </span>
+          </td>
+          <td style="border: 1px solid #9ca3af; padding: 8px;">${s.reason || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    const getTableHeader = () => {
+      if (type === 'study') {
+        return `<tr style="background-color: #dbeafe;">
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 50px;">STT</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: left;">Họ và tên</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 80px;">Lớp</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 100px;">Phép</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: left;">Lý do</th>
+        </tr>`;
+      } else if (type === 'boarding') {
+        return `<tr style="background-color: #dbeafe;">
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 50px;">STT</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: left;">Họ và tên</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 80px;">Lớp</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 80px;">Phòng ở</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 100px;">Phép</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: left;">Lý do</th>
+        </tr>`;
+      } else {
+        return `<tr style="background-color: #dbeafe;">
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 50px;">STT</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: left;">Họ và tên</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 80px;">Lớp</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 70px;">Mâm</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: center; width: 100px;">Phép</th>
+          <th style="border: 1px solid #9ca3af; padding: 8px; text-align: left;">Lý do</th>
+        </tr>`;
+      }
+    };
+
+    return `
+      <div style="text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #2563eb;">
+        <p style="font-size: 14px; color: #4b5563; margin-bottom: 4px;">${schoolName}</p>
+        <h1 style="font-size: 20px; font-weight: bold; color: #1d4ed8; margin-bottom: 8px;">${reportTitle}</h1>
+        <p style="font-size: 14px; color: #374151;">Ngày: ${date}</p>
+      </div>
+
+      <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+        <div style="flex: 1; text-align: center; padding: 16px; background-color: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+          <p style="font-size: 28px; font-weight: bold; color: #1d4ed8;">${total}</p>
+          <p style="font-size: 14px; color: #4b5563; margin-top: 4px;">Tổng số</p>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 16px; background-color: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+          <p style="font-size: 28px; font-weight: bold; color: #16a34a;">${present}</p>
+          <p style="font-size: 14px; color: #4b5563; margin-top: 4px;">Có mặt</p>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 16px; background-color: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+          <p style="font-size: 28px; font-weight: bold; color: #dc2626;">${absent}</p>
+          <p style="font-size: 14px; color: #4b5563; margin-top: 4px;">Vắng</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px; padding: 12px; background-color: #f9fafb; border-radius: 8px;">
+        <p style="font-size: 16px;"><strong>Sỹ số:</strong> ${present}/${total} (Vắng: ${absent})</p>
+      </div>
+
+      ${absent > 0 ? `
+        <div style="margin-top: 16px;">
+          <h3 style="font-weight: bold; margin-bottom: 12px; color: #1f2937; font-size: 16px;">DANH SÁCH HỌC SINH VẮNG</h3>
+          <table style="width: 100%; font-size: 14px; border-collapse: collapse; border: 1px solid #9ca3af;">
+            <thead>${getTableHeader()}</thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      ` : ''}
+
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #d1d5db; display: flex; justify-content: space-between; font-size: 14px; color: #4b5563;">
+        <div>
+          <p><strong>Thời gian báo cáo:</strong> ${currentDateTime}</p>
+        </div>
+        <div style="text-align: right;">
+          <p><strong>Người báo cáo:</strong> ${reporter}</p>
+        </div>
+      </div>
+    `;
   };
 
   const shareToZalo = async () => {
@@ -193,6 +351,24 @@ export function StatsSummaryCard({
         {/* Expanded Content */}
         {isExpanded && absent > 0 && (
           <div className="mt-3 pt-3 border-t space-y-3">
+            {/* Permission Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={permissionFilter} onValueChange={(v: 'all' | 'P' | 'KP') => setPermissionFilter(v)}>
+                <SelectTrigger className="w-[150px] h-8 text-xs">
+                  <SelectValue placeholder="Lọc theo phép" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả ({absentList.length})</SelectItem>
+                  <SelectItem value="P">Có phép ({absentList.filter(s => s.permission === 'P').length})</SelectItem>
+                  <SelectItem value="KP">Không phép ({absentList.filter(s => s.permission === 'KP').length})</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">
+                Hiển thị: {filteredAbsentList.length} học sinh
+              </span>
+            </div>
+
             {/* Absent Students List - Study Type (STT, Họ tên, Lớp, Có phép/Không phép, Lý do) */}
             {type === 'study' && (
               <div className="space-y-1.5">
@@ -209,7 +385,7 @@ export function StatsSummaryCard({
                       </tr>
                     </thead>
                     <tbody>
-                      {absentList.map((student, idx) => (
+                      {filteredAbsentList.map((student, idx) => (
                         <tr key={idx} className="border-b border-border/50 last:border-0">
                           <td className="py-2 px-2 text-muted-foreground">{idx + 1}</td>
                           <td className="py-2 px-2 font-medium">{student.name}</td>
@@ -252,7 +428,7 @@ export function StatsSummaryCard({
                       </tr>
                     </thead>
                     <tbody>
-                      {absentList.map((student, idx) => (
+                      {filteredAbsentList.map((student, idx) => (
                         <tr key={idx} className="border-b border-border/50 last:border-0">
                           <td className="py-2 px-2 text-muted-foreground">{idx + 1}</td>
                           <td className="py-2 px-2 font-medium">{student.name}</td>
@@ -296,7 +472,7 @@ export function StatsSummaryCard({
                       </tr>
                     </thead>
                     <tbody>
-                      {absentList.map((student, idx) => (
+                      {filteredAbsentList.map((student, idx) => (
                         <tr key={idx} className="border-b border-border/50 last:border-0">
                           <td className="py-2 px-2 text-muted-foreground">{idx + 1}</td>
                           <td className="py-2 px-2 font-medium">{student.name}</td>
@@ -325,151 +501,6 @@ export function StatsSummaryCard({
           </div>
         )}
 
-        {/* Hidden report for image export - IMPROVED LAYOUT */}
-        <div className="hidden">
-          <div ref={reportRef} className="bg-white p-6" style={{ width: '800px', fontFamily: 'Arial, sans-serif' }}>
-            {/* Header */}
-            <div className="text-center mb-6 pb-4 border-b-2 border-blue-600">
-              <p className="text-sm text-gray-600 mb-1">{schoolInfo?.name || 'TRƯỜNG PTDTNT THCS&THPT XÍN MẦN'}</p>
-              <h1 className="text-xl font-bold text-blue-700 mb-2">{getReportTitle()}</h1>
-              <p className="text-sm text-gray-700">Ngày: {date}</p>
-            </div>
-
-            {/* Stats summary */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-3xl font-bold text-blue-700">{total}</p>
-                <p className="text-sm text-gray-600 mt-1">Tổng số</p>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-3xl font-bold text-green-600">{present}</p>
-                <p className="text-sm text-gray-600 mt-1">Có mặt</p>
-              </div>
-              <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-                <p className="text-3xl font-bold text-red-600">{absent}</p>
-                <p className="text-sm text-gray-600 mt-1">Vắng</p>
-              </div>
-            </div>
-
-            {/* Sỹ số display */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-base"><strong>Sỹ số:</strong> {present}/{total} (Vắng: {absent})</p>
-            </div>
-
-            {/* Absent table - Study type */}
-            {type === 'study' && absent > 0 && (
-              <div className="mt-4">
-                <h3 className="font-bold mb-3 text-gray-800 text-base">DANH SÁCH HỌC SINH VẮNG</h3>
-                <table className="w-full text-sm border-collapse border border-gray-400">
-                  <thead>
-                    <tr className="bg-blue-100">
-                      <th className="border border-gray-400 p-2 text-center w-12">STT</th>
-                      <th className="border border-gray-400 p-2 text-left">Họ và tên</th>
-                      <th className="border border-gray-400 p-2 text-center w-20">Lớp</th>
-                      <th className="border border-gray-400 p-2 text-center w-24">Phép</th>
-                      <th className="border border-gray-400 p-2 text-left">Lý do</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {absentList.map((s, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="border border-gray-400 p-2 text-center">{idx + 1}</td>
-                        <td className="border border-gray-400 p-2">{s.name}</td>
-                        <td className="border border-gray-400 p-2 text-center">{s.className || '-'}</td>
-                        <td className="border border-gray-400 p-2 text-center">
-                          <span className={s.permission === 'P' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                            {s.permission === 'P' ? 'Có phép' : 'Không phép'}
-                          </span>
-                        </td>
-                        <td className="border border-gray-400 p-2">{s.reason || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Absent table - Boarding type */}
-            {type === 'boarding' && absent > 0 && (
-              <div className="mt-4">
-                <h3 className="font-bold mb-3 text-gray-800 text-base">DANH SÁCH HỌC SINH VẮNG</h3>
-                <table className="w-full text-sm border-collapse border border-gray-400">
-                  <thead>
-                    <tr className="bg-blue-100">
-                      <th className="border border-gray-400 p-2 text-center w-12">STT</th>
-                      <th className="border border-gray-400 p-2 text-left">Họ và tên</th>
-                      <th className="border border-gray-400 p-2 text-center w-20">Lớp</th>
-                      <th className="border border-gray-400 p-2 text-center w-20">Phòng ở</th>
-                      <th className="border border-gray-400 p-2 text-center w-24">Phép</th>
-                      <th className="border border-gray-400 p-2 text-left">Lý do</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {absentList.map((s, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="border border-gray-400 p-2 text-center">{idx + 1}</td>
-                        <td className="border border-gray-400 p-2">{s.name}</td>
-                        <td className="border border-gray-400 p-2 text-center">{s.className || '-'}</td>
-                        <td className="border border-gray-400 p-2 text-center">{s.room || '-'}</td>
-                        <td className="border border-gray-400 p-2 text-center">
-                          <span className={s.permission === 'P' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                            {s.permission === 'P' ? 'Có phép' : 'Không phép'}
-                          </span>
-                        </td>
-                        <td className="border border-gray-400 p-2">{s.reason || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Absent table - Meal type */}
-            {type === 'meal' && absent > 0 && (
-              <div className="mt-4">
-                <h3 className="font-bold mb-3 text-gray-800 text-base">DANH SÁCH HỌC SINH VẮNG</h3>
-                <table className="w-full text-sm border-collapse border border-gray-400">
-                  <thead>
-                    <tr className="bg-blue-100">
-                      <th className="border border-gray-400 p-2 text-center w-12">STT</th>
-                      <th className="border border-gray-400 p-2 text-left">Họ và tên</th>
-                      <th className="border border-gray-400 p-2 text-center w-20">Lớp</th>
-                      <th className="border border-gray-400 p-2 text-center w-16">Mâm</th>
-                      <th className="border border-gray-400 p-2 text-center w-24">Phép</th>
-                      <th className="border border-gray-400 p-2 text-left">Lý do</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {absentList.map((s, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="border border-gray-400 p-2 text-center">{idx + 1}</td>
-                        <td className="border border-gray-400 p-2">{s.name}</td>
-                        <td className="border border-gray-400 p-2 text-center">{s.className || '-'}</td>
-                        <td className="border border-gray-400 p-2 text-center">{s.mealGroup || '-'}</td>
-                        <td className="border border-gray-400 p-2 text-center">
-                          <span className={s.permission === 'P' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                            {s.permission === 'P' ? 'Có phép' : 'Không phép'}
-                          </span>
-                        </td>
-                        <td className="border border-gray-400 p-2">{s.reason || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="mt-6 pt-4 border-t border-gray-300 flex justify-between text-sm text-gray-600">
-              <div>
-                <p><strong>Thời gian báo cáo:</strong> {currentDateTime}</p>
-              </div>
-              <div className="text-right">
-                <p><strong>Người báo cáo:</strong> {reporter}</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
