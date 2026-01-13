@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Student } from '@/types';
+import { useStudents, Student } from '@/hooks/useStudents';
 import {
   Table,
   TableBody,
@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Edit, Trash2, Search } from 'lucide-react';
+import { Edit, Trash2, Search, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -42,12 +42,14 @@ interface StudentTableProps {
 }
 
 export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
-  const { students, setStudents, classes } = useApp();
+  const { classes } = useApp();
+  const { students, isLoading, deleteStudent } = useStudents();
   const { hasRole } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
 
   // Chỉ admin hoặc class_teacher mới có quyền sửa/xóa
   const canEditDelete = hasRole('admin') || hasRole('class_teacher');
@@ -81,18 +83,36 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
     setSelectedIds(newSelected);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     const count = selectedIds.size;
-    setStudents(students.filter(s => !selectedIds.has(s.id)));
-    setSelectedIds(new Set());
-    toast({
-      title: 'Xóa thành công',
-      description: `Đã xóa ${count} học sinh`,
-    });
+    setIsDeletingSelected(true);
+    try {
+      // Delete each selected student
+      for (const id of selectedIds) {
+        await deleteStudent(id);
+      }
+      setSelectedIds(new Set());
+      toast({
+        title: 'Xóa thành công',
+        description: `Đã xóa ${count} học sinh`,
+      });
+    } catch (error) {
+      // Error handled by mutation
+    } finally {
+      setIsDeletingSelected(false);
+    }
   };
 
   const isAllSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.has(s.id));
   const isSomeSelected = filteredStudents.some(s => selectedIds.has(s.id));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -107,11 +127,11 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
           />
         </div>
         <div className="flex items-center gap-2">
-          {selectedIds.size > 0 && (
+          {selectedIds.size > 0 && canEditDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
+                <Button variant="destructive" size="sm" className="gap-2" disabled={isDeletingSelected}>
+                  {isDeletingSelected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   Xóa đã chọn ({selectedIds.size})
                 </Button>
               </AlertDialogTrigger>
@@ -161,10 +181,9 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
               </TableHead>
               <TableHead className="w-12 text-center">STT</TableHead>
               <TableHead>Họ và tên</TableHead>
-              <TableHead>Ngày sinh</TableHead>
               <TableHead>Lớp</TableHead>
-              <TableHead>Phòng ở</TableHead>
-              <TableHead>Mâm ăn</TableHead>
+              <TableHead>Giới tính</TableHead>
+              <TableHead>SĐT Phụ huynh</TableHead>
               {canEditDelete && <TableHead className="w-24 text-center">Thao tác</TableHead>}
             </TableRow>
           </TableHeader>
@@ -184,19 +203,12 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
                 <TableCell className="text-center font-medium">{index + 1}</TableCell>
                 <TableCell className="font-medium">{student.name}</TableCell>
                 <TableCell>
-                  {format(new Date(student.dateOfBirth), 'dd/MM/yyyy', { locale: vi })}
-                </TableCell>
-                <TableCell>
                   <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                     {getClassName(student.classId)}
                   </span>
                 </TableCell>
-                <TableCell>{student.room}</TableCell>
-                <TableCell>
-                  <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
-                    {student.mealGroup}
-                  </span>
-                </TableCell>
+                <TableCell>{student.gender || '-'}</TableCell>
+                <TableCell>{student.parentPhone || '-'}</TableCell>
                 {canEditDelete && (
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">

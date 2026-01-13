@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStudents, Student } from '@/hooks/useStudents';
 import { StudentTable } from '@/components/students/StudentTable';
 import { ExcelImport } from '@/components/students/ExcelImport';
 import { Button } from '@/components/ui/button';
@@ -20,8 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Student } from '@/types';
-import { UserPlus, Users, Trash2 } from 'lucide-react';
+import { UserPlus, Users, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -36,9 +36,21 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function Students() {
-  const { students, setStudents, classes } = useApp();
+  const { classes } = useApp();
   const { hasRole } = useAuth();
   const { toast } = useToast();
+  const { 
+    students, 
+    isLoading, 
+    addStudent, 
+    updateStudent, 
+    deleteStudent, 
+    deleteAllStudents,
+    isAdding,
+    isUpdating,
+    isDeleting 
+  } = useStudents();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [formData, setFormData] = useState({
@@ -70,57 +82,46 @@ export default function Students() {
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.name || !formData.dateOfBirth || !formData.classId || !formData.room) {
+  const handleSave = async () => {
+    if (!formData.name || !formData.classId) {
       toast({
         title: 'Lỗi',
-        description: 'Vui lòng điền đầy đủ thông tin',
+        description: 'Vui lòng điền họ tên và lớp',
         variant: 'destructive',
       });
       return;
     }
 
-    if (editingStudent) {
-      setStudents(students.map((s) =>
-        s.id === editingStudent.id ? { ...s, ...formData } : s
-      ));
-      toast({
-        title: 'Cập nhật thành công',
-        description: `Đã cập nhật thông tin học sinh ${formData.name}`,
-      });
-    } else {
-      const newStudent: Student = {
-        id: `student-${Date.now()}`,
-        ...formData,
-      };
-      setStudents([...students, newStudent]);
-      toast({
-        title: 'Thêm thành công',
-        description: `Đã thêm học sinh ${formData.name}`,
-      });
+    try {
+      if (editingStudent) {
+        await updateStudent({ id: editingStudent.id, ...formData });
+      } else {
+        await addStudent(formData);
+      }
+      setIsDialogOpen(false);
+    } catch (error) {
+      // Error handled by mutation
     }
-
-    setIsDialogOpen(false);
   };
 
-  const handleDelete = (studentId: string) => {
+  const handleDelete = async (studentId: string) => {
     const student = students.find((s) => s.id === studentId);
     if (student && confirm(`Bạn có chắc muốn xóa học sinh ${student.name}?`)) {
-      setStudents(students.filter((s) => s.id !== studentId));
-      toast({
-        title: 'Xóa thành công',
-        description: `Đã xóa học sinh ${student.name}`,
-      });
+      await deleteStudent(studentId);
     }
   };
 
-  const handleDeleteAll = () => {
-    setStudents([]);
-    toast({
-      title: 'Xóa thành công',
-      description: 'Đã xóa tất cả học sinh',
-    });
+  const handleDeleteAll = async () => {
+    await deleteAllStudents();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -195,7 +196,7 @@ export default function Students() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Ngày sinh <span className="text-destructive">*</span>
+                Ngày sinh
               </label>
               <Input
                 type="date"
@@ -227,7 +228,7 @@ export default function Students() {
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Phòng ở <span className="text-destructive">*</span>
+                Phòng ở
               </label>
               <Input
                 placeholder="VD: P101"
@@ -260,7 +261,8 @@ export default function Students() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Hủy
             </Button>
-            <Button onClick={handleSave} className="gradient-primary">
+            <Button onClick={handleSave} className="gradient-primary" disabled={isAdding || isUpdating}>
+              {(isAdding || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingStudent ? 'Cập nhật' : 'Thêm mới'}
             </Button>
           </DialogFooter>
