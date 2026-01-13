@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
+import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
 import { AddUserDialog } from '@/components/users/AddUserDialog';
@@ -103,6 +104,11 @@ export default function UserManagement() {
   // Permission manager state
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [permissionUser, setPermissionUser] = useState<UserWithRoles | null>(null);
+
+  // Delete user state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<UserWithRoles | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAdmin = hasRole('admin');
 
@@ -197,6 +203,57 @@ export default function UserManagement() {
   const handleOpenPermissions = (user: UserWithRoles) => {
     setPermissionUser(user);
     setPermissionDialogOpen(true);
+  };
+
+  const handleOpenDeleteUser = (user: UserWithRoles) => {
+    setDeletingUser(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+
+    setIsDeleting(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-delete-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            user_id: deletingUser.id,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Xóa người dùng thất bại');
+      }
+
+      toast({
+        title: 'Thành công',
+        description: `Đã xóa tài khoản ${deletingUser.full_name}`
+      });
+      setDeleteDialogOpen(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Không thể xóa người dùng',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleResetPassword = async () => {
@@ -520,6 +577,14 @@ export default function UserManagement() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleOpenDeleteUser(user)}
+                          title="Xóa tài khoản"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -695,6 +760,45 @@ export default function UserManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Xác nhận xóa tài khoản
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa tài khoản <span className="font-semibold">{deletingUser?.full_name}</span>?
+              <br />
+              <span className="text-destructive font-medium">
+                Hành động này không thể hoàn tác. Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteUser} 
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Đang xóa...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Xóa tài khoản
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
