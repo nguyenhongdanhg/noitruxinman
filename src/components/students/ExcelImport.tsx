@@ -15,18 +15,18 @@ export function ExcelImport() {
     const headers = [
       'A: STT',
       'B: Họ và tên', 
-      'C: Lớp',
-      'D: Giới tính (Nam/Nữ)',
-      'E: SĐT Phụ huynh',
-      'F: Địa chỉ'
+      'C: Ngày sinh',
+      'D: Lớp',
+      'E: Phòng ở',
+      'F: Mâm ăn'
     ];
     
-    const dataHeaders = ['STT', 'Họ và tên', 'Lớp', 'Giới tính', 'SĐT Phụ huynh', 'Địa chỉ'];
+    const dataHeaders = ['STT', 'Họ và tên', 'Ngày sinh', 'Lớp', 'Phòng ở', 'Mâm ăn'];
     
     const examples = [
-      ['1', 'Nguyễn Văn An', '6A', 'Nam', '0901234567', 'Hà Nội'],
-      ['2', 'Trần Thị Bình', '6A', 'Nữ', '0912345678', 'Hà Nội'],
-      ['3', 'Lê Hoàng Cường', '6B', 'Nam', '0923456789', 'Hà Nội'],
+      ['1', 'Nguyễn Văn An', '15/03/2010', '6A', 'P101', 'M1'],
+      ['2', 'Trần Thị Bình', '22/07/2010', '6A', 'P102', 'M2'],
+      ['3', 'Lê Hoàng Cường', '08/11/2010', '6B', 'P103', 'M1'],
     ];
 
     // Tạo nội dung với dòng hướng dẫn cột và dữ liệu
@@ -84,21 +84,18 @@ export function ExcelImport() {
         const values = rawValues.map(v => v.trim().replace(/^"|"$/g, ''));
         if (values.length >= 3) {
           const name = values[1]?.trim();
-          const classId = values[2]?.trim().toLowerCase().replace(' ', '');
-          const gender = values[3]?.trim() || undefined;
-          const parentPhone = values[4]?.trim() || undefined;
-          const address = values[5]?.trim() || undefined;
+          const dateOfBirth = values[2]?.trim() || '';
+          const classId = values[3]?.trim().toLowerCase().replace(' ', '');
+          const room = values[4]?.trim() || '';
+          const mealGroup = values[5]?.trim() || 'M1';
 
           if (name && classId) {
             newStudents.push({
               name,
               classId,
-              dateOfBirth: '',
-              room: '',
-              mealGroup: 'M1',
-              gender,
-              parentPhone,
-              address,
+              dateOfBirth,
+              room,
+              mealGroup,
             });
           }
         }
