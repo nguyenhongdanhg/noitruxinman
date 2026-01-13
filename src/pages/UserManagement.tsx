@@ -25,6 +25,8 @@ interface UserWithRoles {
   id: string;
   full_name: string;
   phone: string | null;
+  username: string | null;
+  email: string | null;
   class_id: string | null;
   roles: AppRole[];
 }
@@ -119,15 +121,45 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
-      const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
-        id: profile.id,
-        full_name: profile.full_name,
-        phone: profile.phone,
-        class_id: profile.class_id,
-        roles: (allRolesData || [])
-          .filter(r => r.user_id === profile.id)
-          .map(r => r.role)
-      }));
+      // Fetch emails from auth.users via edge function or RPC
+      // For now, we'll use the admin-get-users approach
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      let usersWithEmails: { id: string; email: string }[] = [];
+      if (session?.access_token) {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-get-users`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            }
+          );
+          if (response.ok) {
+            const result = await response.json();
+            usersWithEmails = result.users || [];
+          }
+        } catch (error) {
+          console.log('Could not fetch user emails:', error);
+        }
+      }
+
+      const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => {
+        const authUser = usersWithEmails.find(u => u.id === profile.id);
+        return {
+          id: profile.id,
+          full_name: profile.full_name,
+          phone: profile.phone,
+          username: profile.username,
+          email: authUser?.email || null,
+          class_id: profile.class_id,
+          roles: (allRolesData || [])
+            .filter(r => r.user_id === profile.id)
+            .map(r => r.role)
+        };
+      });
 
       setUsers(usersWithRoles);
     } catch (error) {
@@ -411,22 +443,24 @@ export default function UserManagement() {
               <TableRow>
                 <TableHead className="w-12">STT</TableHead>
                 <TableHead>Họ và tên</TableHead>
-                <TableHead>Điện thoại</TableHead>
+                <TableHead>Tài khoản đăng nhập</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>SĐT</TableHead>
                 <TableHead>Vai trò</TableHead>
-                <TableHead>Lớp chủ nhiệm</TableHead>
+                <TableHead>Lớp CN</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     Đang tải...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Chưa có người dùng nào
                   </TableCell>
                 </TableRow>
@@ -435,6 +469,18 @@ export default function UserManagement() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">{user.full_name}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-sm">
+                        {user.username ? (
+                          <span className="font-medium text-primary">{user.username}</span>
+                        ) : user.phone ? (
+                          <span className="text-muted-foreground italic">Dùng SĐT</span>
+                        ) : (
+                          <span className="text-destructive italic">Dùng Email</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{user.email || '-'}</TableCell>
                     <TableCell>{user.phone || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
