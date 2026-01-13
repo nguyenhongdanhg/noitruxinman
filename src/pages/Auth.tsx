@@ -46,13 +46,25 @@ export default function Auth() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const { error } = await signInByLogin(loginIdentifier, loginPassword);
+    // Check if login identifier is an email
+    const isEmail = loginIdentifier.includes('@');
+    
+    let error: Error | null = null;
+    if (isEmail) {
+      // Login directly with email
+      const result = await signIn(loginIdentifier, loginPassword);
+      error = result.error;
+    } else {
+      // Login by username or phone
+      const result = await signInByLogin(loginIdentifier, loginPassword);
+      error = result.error;
+    }
     
     if (error) {
       toast({
         title: 'Lỗi đăng nhập',
         description: error.message === 'Invalid login credentials' 
-          ? 'Tên đăng nhập/SĐT hoặc mật khẩu không đúng' 
+          ? 'Tên đăng nhập/SĐT/Email hoặc mật khẩu không đúng' 
           : error.message === 'User not found'
           ? 'Không tìm thấy tài khoản với thông tin này'
           : error.message,
@@ -222,13 +234,13 @@ export default function Auth() {
             <TabsContent value="login" className="mt-4">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-identifier">Tên đăng nhập / Số điện thoại</Label>
+                  <Label htmlFor="login-identifier">Tên đăng nhập / SĐT / Email</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-identifier"
                       type="text"
-                      placeholder="Nhập tên đăng nhập hoặc SĐT"
+                      placeholder="Nhập tên đăng nhập, SĐT hoặc email"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
                       className="pl-10"
