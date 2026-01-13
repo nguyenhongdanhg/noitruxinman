@@ -12,11 +12,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2 } from 'lucide-react';
+import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
 import { AddUserDialog } from '@/components/users/AddUserDialog';
 import { LoginHistory } from '@/components/users/LoginHistory';
+import { PermissionManager } from '@/components/users/PermissionManager';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -97,6 +98,10 @@ export default function UserManagement() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
+  // Permission manager state
+  const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
+  const [permissionUser, setPermissionUser] = useState<UserWithRoles | null>(null);
+
   const isAdmin = hasRole('admin');
 
   const fetchUsers = async () => {
@@ -155,6 +160,11 @@ export default function UserManagement() {
     setNewPassword('');
     setConfirmNewPassword('');
     setResetPasswordDialogOpen(true);
+  };
+
+  const handleOpenPermissions = (user: UserWithRoles) => {
+    setPermissionUser(user);
+    setPermissionDialogOpen(true);
   };
 
   const handleResetPassword = async () => {
@@ -443,6 +453,14 @@ export default function UserManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleOpenPermissions(user)}
+                          title="Phân quyền chi tiết"
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleOpenResetPassword(user)}
                           title="Đặt lại mật khẩu"
                         >
@@ -452,7 +470,7 @@ export default function UserManagement() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEditUser(user)}
-                          title="Chỉnh sửa"
+                          title="Chỉnh sửa vai trò"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -609,6 +627,28 @@ export default function UserManagement() {
 
       {/* Login History */}
       <LoginHistory />
+
+      {/* Permission Manager Dialog */}
+      <Dialog open={permissionDialogOpen} onOpenChange={setPermissionDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Phân quyền chi tiết theo tính năng
+            </DialogTitle>
+            <DialogDescription>
+              Tích chọn từng quyền riêng lẻ cho mỗi tính năng thay vì phân theo vai trò
+            </DialogDescription>
+          </DialogHeader>
+          {permissionUser && (
+            <PermissionManager
+              userId={permissionUser.id}
+              userName={permissionUser.full_name}
+              onClose={() => setPermissionDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
