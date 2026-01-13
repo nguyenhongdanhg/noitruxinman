@@ -26,7 +26,7 @@ interface AttendanceFormProps {
 }
 
 export function AttendanceForm({ type, title, filterClassId }: AttendanceFormProps) {
-  const { students, classes, currentUser, reports, setReports } = useApp();
+  const { students, classes, currentUser, createReport, isCreatingReport } = useApp();
   const { toast } = useToast();
   
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -96,37 +96,44 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     return true;
   };
 
-  const saveReport = () => {
-    const report: Report = {
-      id: `report-${Date.now()}`,
-      date,
-      type,
-      session: type === 'boarding' ? session : undefined,
-      mealType: type === 'meal' ? (mealType as 'breakfast' | 'lunch' | 'dinner') : undefined,
-      totalStudents: filteredStudents.length,
-      presentCount: presentStudents.size,
-      absentCount: absentStudents.length,
-      absentStudents: absentStudents.map((s) => ({
-        studentId: s.id,
-        name: s.name,
-        classId: s.classId,
-        room: s.room,
-        mealGroup: s.mealGroup,
-        reason: reasons[s.id] || '',
-        permission: permissions[s.id] || 'KP',
-      })),
-      notes,
-      reporterId: currentUser.id,
-      reporterName: currentUser.name,
-      createdAt: new Date().toISOString(),
-    };
+  const saveReport = async () => {
+    try {
+      await createReport({
+        date,
+        type,
+        session: type === 'boarding' ? session : undefined,
+        mealType: type === 'meal' ? (mealType as 'breakfast' | 'lunch' | 'dinner') : undefined,
+        classId: selectedClass !== 'all' ? selectedClass : (filterClassId || undefined),
+        totalStudents: filteredStudents.length,
+        presentCount: presentStudents.size,
+        absentCount: absentStudents.length,
+        absentStudents: absentStudents.map((s) => ({
+          studentId: s.id,
+          name: s.name,
+          classId: s.classId,
+          room: s.room,
+          mealGroup: s.mealGroup,
+          reason: reasons[s.id] || '',
+          permission: permissions[s.id] || 'KP',
+        })),
+        notes,
+        reporterId: currentUser.id,
+        reporterName: currentUser.name,
+      });
 
-    setReports([...reports, report]);
+      toast({
+        title: 'Lưu báo cáo thành công',
+        description: `Báo cáo ngày ${format(new Date(date), 'dd/MM/yyyy', { locale: vi })} đã được lưu vào hệ thống`,
+      });
 
-    toast({
-      title: 'Lưu báo cáo thành công',
-      description: `Báo cáo ngày ${format(new Date(date), 'dd/MM/yyyy', { locale: vi })} đã được lưu`,
-    });
+      // Reset form after successful save
+      setPresentStudents(new Set());
+      setReasons({});
+      setPermissions({});
+      setNotes('');
+    } catch (error) {
+      console.error('Error saving report:', error);
+    }
   };
 
   const shareToZalo = () => {
@@ -368,11 +375,11 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
               <Button
                 onClick={saveReport}
-                disabled={!canSubmit()}
+                disabled={!canSubmit() || isCreatingReport}
                 className="gap-2 gradient-primary w-full sm:w-auto"
               >
                 <Save className="h-4 w-4" />
-                Lưu báo cáo
+                {isCreatingReport ? 'Đang lưu...' : 'Lưu báo cáo'}
               </Button>
               <Button
                 variant="outline"

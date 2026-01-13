@@ -3,6 +3,7 @@ import { Student, Teacher, AttendanceRecord, Report } from '@/types';
 import { mockTeachers, classes, schoolInfo } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudents } from '@/hooks/useStudents';
+import { useReports } from '@/hooks/useReports';
 
 interface AppContextType {
   students: Student[];
@@ -18,6 +19,11 @@ interface AppContextType {
   classes: typeof classes;
   isLoadingStudents: boolean;
   refetchStudents: () => void;
+  isLoadingReports: boolean;
+  refetchReports: () => void;
+  createReport: (report: Omit<Report, 'id' | 'createdAt'> & { classId?: string }) => Promise<Report>;
+  deleteReport: (reportId: string) => Promise<void>;
+  isCreatingReport: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -25,9 +31,20 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
   const { students: dbStudents, isLoading: isLoadingStudents, refetch: refetchStudents } = useStudents();
+  const { 
+    reports: dbReports, 
+    isLoading: isLoadingReports, 
+    refetch: refetchReports,
+    createReport,
+    deleteReport,
+    isCreating: isCreatingReport,
+  } = useReports();
   
   // Students now come from database via useStudents hook
   const [students, setStudents] = useState<Student[]>([]);
+  
+  // Reports now come from database via useReports hook
+  const [reports, setReports] = useState<Report[]>([]);
   
   // Sync students from database
   useEffect(() => {
@@ -35,6 +52,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStudents(dbStudents);
     }
   }, [dbStudents]);
+
+  // Sync reports from database
+  useEffect(() => {
+    if (dbReports) {
+      setReports(dbReports);
+    }
+  }, [dbReports]);
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem('teachers');
@@ -46,18 +70,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [reports, setReports] = useState<Report[]>(() => {
-    const saved = localStorage.getItem('reports');
-    return saved ? JSON.parse(saved) : [];
-  });
-
   // Use authenticated user info if available, otherwise fallback
   const currentUser = {
     id: user?.id || '1',
     name: profile?.full_name || 'Nguyễn Hồng Dân'
   };
 
-  // No longer save students to localStorage - they come from database
+  // No longer save students or reports to localStorage - they come from database
 
   useEffect(() => {
     localStorage.setItem('teachers', JSON.stringify(teachers));
@@ -66,10 +85,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
   }, [attendanceRecords]);
-
-  useEffect(() => {
-    localStorage.setItem('reports', JSON.stringify(reports));
-  }, [reports]);
 
   return (
     <AppContext.Provider
@@ -87,6 +102,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         classes,
         isLoadingStudents,
         refetchStudents,
+        isLoadingReports,
+        refetchReports,
+        createReport,
+        deleteReport,
+        isCreatingReport,
       }}
     >
       {children}

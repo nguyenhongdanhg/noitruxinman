@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_reports: {
+        Row: {
+          absent_count: number
+          absent_students: Json
+          class_id: string | null
+          created_at: string
+          date: string
+          id: string
+          meal_type: string | null
+          notes: string | null
+          present_count: number
+          reporter_id: string
+          reporter_name: string
+          session: string | null
+          total_students: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          absent_count?: number
+          absent_students?: Json
+          class_id?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          meal_type?: string | null
+          notes?: string | null
+          present_count?: number
+          reporter_id: string
+          reporter_name: string
+          session?: string | null
+          total_students?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          absent_count?: number
+          absent_students?: Json
+          class_id?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          meal_type?: string | null
+          notes?: string | null
+          present_count?: number
+          reporter_id?: string
+          reporter_name?: string
+          session?: string | null
+          total_students?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       login_history: {
         Row: {
           id: string
