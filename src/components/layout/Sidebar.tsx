@@ -45,16 +45,16 @@ export function Sidebar() {
   const getRoleBadges = () => {
     const badges = [];
     if (hasRole('admin')) {
-      badges.push(<Badge key="admin" variant="destructive" className="text-xs">Admin</Badge>);
+      badges.push(<Badge key="admin" variant="destructive" className="text-xs">Quản trị viên</Badge>);
     }
     if (hasRole('class_teacher')) {
-      badges.push(<Badge key="class_teacher" variant="default" className="text-xs">GVCN</Badge>);
+      badges.push(<Badge key="class_teacher" variant="default" className="text-xs">Giáo viên chủ nhiệm</Badge>);
     }
     if (hasRole('accountant')) {
-      badges.push(<Badge key="accountant" className="text-xs bg-green-500">Kế toán</Badge>);
+      badges.push(<Badge key="accountant" className="text-xs bg-green-500 text-white">Kế toán</Badge>);
     }
     if (hasRole('kitchen')) {
-      badges.push(<Badge key="kitchen" className="text-xs bg-orange-500">Nhà bếp</Badge>);
+      badges.push(<Badge key="kitchen" className="text-xs bg-orange-500 text-white">Nhà bếp</Badge>);
     }
     if (badges.length === 0 && hasRole('teacher')) {
       badges.push(<Badge key="teacher" variant="secondary" className="text-xs">Giáo viên</Badge>);

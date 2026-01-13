@@ -4,14 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, School, Phone, Mail, MapPin, Save, RefreshCw, Lock, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, School, Phone, Mail, MapPin, Save, RefreshCw, Lock, Loader2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 
 export default function Settings() {
   const { schoolInfo, students, teachers, reports, setStudents, setTeachers, setReports } = useApp();
-  const { user } = useAuth();
+  const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
+  const isAdmin = hasRole('admin');
   
   const [schoolName, setSchoolName] = useState(schoolInfo.name);
   const [schoolAddress, setSchoolAddress] = useState(schoolInfo.address || '');
@@ -24,8 +26,39 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  // Profile edit state
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [phoneNumber, setPhoneNumber] = useState(profile?.phone || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    setIsSavingProfile(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        full_name: fullName,
+        phone: phoneNumber 
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể cập nhật thông tin',
+        variant: 'destructive'
+      });
+    } else {
+      toast({
+        title: 'Thành công',
+        description: 'Thông tin cá nhân đã được cập nhật'
+      });
+    }
+    setIsSavingProfile(false);
+  };
+
   const handleSaveSettings = () => {
-    // In a real app, this would save to backend
     toast({
       title: 'Đã lưu cài đặt',
       description: 'Thông tin trường đã được cập nhật',
@@ -68,7 +101,6 @@ export default function Settings() {
 
     setIsChangingPassword(true);
 
-    // First verify current password by re-authenticating
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user?.email || '',
       password: currentPassword
@@ -84,7 +116,6 @@ export default function Settings() {
       return;
     }
 
-    // Update password
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     });
@@ -108,19 +139,92 @@ export default function Settings() {
     setIsChangingPassword(false);
   };
 
+  const getRoleName = () => {
+    if (hasRole('admin')) return 'Quản trị viên';
+    if (hasRole('class_teacher')) return 'Giáo viên chủ nhiệm';
+    if (hasRole('accountant')) return 'Kế toán';
+    if (hasRole('kitchen')) return 'Nhà bếp';
+    if (hasRole('teacher')) return 'Giáo viên';
+    return 'Người dùng';
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <SettingsIcon className="h-7 w-7 text-primary" />
-          Cài đặt hệ thống
+          {isAdmin ? 'Cài đặt hệ thống' : 'Thông tin cá nhân'}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Quản lý thông tin trường và cấu hình hệ thống
+          {isAdmin ? 'Quản lý thông tin trường và cấu hình hệ thống' : 'Quản lý thông tin tài khoản của bạn'}
         </p>
       </div>
 
-      {/* Change Password */}
+      {/* Personal Information - All users */}
+      {user && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Thông tin tài khoản
+            </CardTitle>
+            <CardDescription>
+              Thông tin cá nhân và vai trò của bạn trong hệ thống
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary">
+                <User className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">{profile?.full_name || 'Chưa cập nhật'}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <Badge variant="secondary" className="mt-1">{getRoleName()}</Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Họ và tên
+                </label>
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Nhập họ và tên"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Số điện thoại
+                </label>
+                <Input
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Nhập số điện thoại"
+                />
+              </div>
+            </div>
+
+            <Button onClick={handleSaveProfile} className="gap-2" disabled={isSavingProfile}>
+              {isSavingProfile ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Lưu thông tin
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Change Password - All users */}
       {user && (
         <Card>
           <CardHeader>
@@ -190,119 +294,124 @@ export default function Settings() {
         </Card>
       )}
 
-      {/* School Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <School className="h-5 w-5 text-primary" />
-            Thông tin trường
-          </CardTitle>
-          <CardDescription>
-            Cập nhật thông tin cơ bản của trường học
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Tên trường
-            </label>
-            <Input
-              value={schoolName}
-              onChange={(e) => setSchoolName(e.target.value)}
-              placeholder="Nhập tên trường"
-            />
-          </div>
+      {/* Admin Only Sections */}
+      {isAdmin && (
+        <>
+          {/* School Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <School className="h-5 w-5 text-primary" />
+                Thông tin trường
+              </CardTitle>
+              <CardDescription>
+                Cập nhật thông tin cơ bản của trường học
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Tên trường
+                </label>
+                <Input
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="Nhập tên trường"
+                />
+              </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Địa chỉ
-            </label>
-            <Input
-              value={schoolAddress}
-              onChange={(e) => setSchoolAddress(e.target.value)}
-              placeholder="Nhập địa chỉ"
-            />
-          </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Địa chỉ
+                </label>
+                <Input
+                  value={schoolAddress}
+                  onChange={(e) => setSchoolAddress(e.target.value)}
+                  placeholder="Nhập địa chỉ"
+                />
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Số điện thoại
-              </label>
-              <Input
-                value={schoolPhone}
-                onChange={(e) => setSchoolPhone(e.target.value)}
-                placeholder="Nhập số điện thoại"
-              />
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Số điện thoại
+                  </label>
+                  <Input
+                    value={schoolPhone}
+                    onChange={(e) => setSchoolPhone(e.target.value)}
+                    placeholder="Nhập số điện thoại"
+                  />
+                </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Email
-              </label>
-              <Input
-                type="email"
-                value={schoolEmail}
-                onChange={(e) => setSchoolEmail(e.target.value)}
-                placeholder="Nhập email"
-              />
-            </div>
-          </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </label>
+                  <Input
+                    type="email"
+                    value={schoolEmail}
+                    onChange={(e) => setSchoolEmail(e.target.value)}
+                    placeholder="Nhập email"
+                  />
+                </div>
+              </div>
 
-          <Button onClick={handleSaveSettings} className="gap-2 gradient-primary">
-            <Save className="h-4 w-4" />
-            Lưu thay đổi
-          </Button>
-        </CardContent>
-      </Card>
+              <Button onClick={handleSaveSettings} className="gap-2 gradient-primary">
+                <Save className="h-4 w-4" />
+                Lưu thay đổi
+              </Button>
+            </CardContent>
+          </Card>
 
-      {/* Data Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Thống kê dữ liệu</CardTitle>
-          <CardDescription>
-            Tổng quan về dữ liệu trong hệ thống
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Số học sinh</p>
-              <p className="text-2xl font-bold text-foreground">{students.length}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Số giáo viên</p>
-              <p className="text-2xl font-bold text-foreground">{teachers.length}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Số báo cáo</p>
-              <p className="text-2xl font-bold text-foreground">{reports.length}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Data Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Thống kê dữ liệu</CardTitle>
+              <CardDescription>
+                Tổng quan về dữ liệu trong hệ thống
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground">Số học sinh</p>
+                  <p className="text-2xl font-bold text-foreground">{students.length}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground">Số giáo viên</p>
+                  <p className="text-2xl font-bold text-foreground">{teachers.length}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground">Số báo cáo</p>
+                  <p className="text-2xl font-bold text-foreground">{reports.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Danger Zone */}
-      <Card className="border-destructive/50">
-        <CardHeader>
-          <CardTitle className="text-destructive">Vùng nguy hiểm</CardTitle>
-          <CardDescription>
-            Các thao tác không thể hoàn tác
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="destructive" onClick={handleClearData} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Xóa toàn bộ dữ liệu
-          </Button>
-          <p className="text-sm text-muted-foreground mt-2">
-            Thao tác này sẽ xóa toàn bộ học sinh, giáo viên và báo cáo. Không thể hoàn tác.
-          </p>
-        </CardContent>
-      </Card>
+          {/* Danger Zone */}
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="text-destructive">Vùng nguy hiểm</CardTitle>
+              <CardDescription>
+                Các thao tác không thể hoàn tác
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="destructive" onClick={handleClearData} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Xóa toàn bộ dữ liệu
+              </Button>
+              <p className="text-sm text-muted-foreground mt-2">
+                Thao tác này sẽ xóa toàn bộ học sinh, giáo viên và báo cáo. Không thể hoàn tác.
+              </p>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Credits */}
       <Card className="gradient-primary text-primary-foreground">

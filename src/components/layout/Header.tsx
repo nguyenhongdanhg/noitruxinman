@@ -1,4 +1,4 @@
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useApp } from '@/contexts/AppContext';
@@ -28,16 +28,6 @@ export function Header() {
           <Bell className="h-5 w-5" />
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent" />
         </Button>
-
-        <div className="flex items-center gap-3 rounded-lg bg-secondary px-3 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
-            <User className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-medium text-foreground">{currentUser.name}</p>
-            <p className="text-xs text-muted-foreground">Quản trị viên</p>
-          </div>
-        </div>
       </div>
     </header>
   );
