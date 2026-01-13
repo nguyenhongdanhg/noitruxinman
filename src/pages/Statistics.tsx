@@ -650,18 +650,18 @@ export default function Statistics() {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <Card className="bg-primary/5 border-primary/20">
+        <Card className="bg-success/5 border-success/20">
           <CardContent className="py-3 sm:py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Book className="h-5 w-5 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+                <Utensils className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Giờ tự học</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Bữa ăn</p>
                 <p className="text-lg sm:text-xl font-bold text-foreground">
-                  {summaryStats.eveningStudy.present}/{summaryStats.eveningStudy.total}
+                  {summaryStats.meals.present}/{summaryStats.meals.total}
                 </p>
-                <p className="text-xs text-muted-foreground">Vắng: {summaryStats.eveningStudy.absent}</p>
+                <p className="text-xs text-muted-foreground">Vắng: {summaryStats.meals.absent}</p>
               </div>
             </div>
           </CardContent>
@@ -684,18 +684,18 @@ export default function Statistics() {
           </CardContent>
         </Card>
 
-        <Card className="bg-success/5 border-success/20">
+        <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3 sm:py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
-                <Utensils className="h-5 w-5 text-success" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Book className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Bữa ăn</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Giờ tự học</p>
                 <p className="text-lg sm:text-xl font-bold text-foreground">
-                  {summaryStats.meals.present}/{summaryStats.meals.total}
+                  {summaryStats.eveningStudy.present}/{summaryStats.eveningStudy.total}
                 </p>
-                <p className="text-xs text-muted-foreground">Vắng: {summaryStats.meals.absent}</p>
+                <p className="text-xs text-muted-foreground">Vắng: {summaryStats.eveningStudy.absent}</p>
               </div>
             </div>
           </CardContent>
@@ -703,22 +703,22 @@ export default function Statistics() {
       </div>
 
       {/* Detailed Reports by Category */}
-      <Tabs defaultValue="study" className="w-full">
+      <Tabs defaultValue="meals" className="w-full">
         <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger value="study" className="gap-1.5 py-2 text-xs sm:text-sm">
-            <Book className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Tự học</span>
-            <span className="sm:hidden">Tự học</span>
+          <TabsTrigger value="meals" className="gap-1.5 py-2 text-xs sm:text-sm">
+            <Utensils className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Bữa ăn</span>
+            <span className="sm:hidden">Ăn</span>
           </TabsTrigger>
           <TabsTrigger value="boarding" className="gap-1.5 py-2 text-xs sm:text-sm">
             <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Nội trú</span>
             <span className="sm:hidden">Ngủ</span>
           </TabsTrigger>
-          <TabsTrigger value="meals" className="gap-1.5 py-2 text-xs sm:text-sm">
-            <Utensils className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Bữa ăn</span>
-            <span className="sm:hidden">Ăn</span>
+          <TabsTrigger value="study" className="gap-1.5 py-2 text-xs sm:text-sm">
+            <Book className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Tự học</span>
+            <span className="sm:hidden">Tự học</span>
           </TabsTrigger>
         </TabsList>
 
