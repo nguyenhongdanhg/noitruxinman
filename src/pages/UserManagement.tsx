@@ -16,6 +16,7 @@ import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, Ke
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
 import { AddUserDialog } from '@/components/users/AddUserDialog';
+import { LoginHistory } from '@/components/users/LoginHistory';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -605,6 +606,9 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Login History */}
+      <LoginHistory />
     </div>
   );
 }

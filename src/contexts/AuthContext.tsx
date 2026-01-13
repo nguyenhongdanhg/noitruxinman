@@ -139,11 +139,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const recordLoginHistory = async (userId: string, success: boolean) => {
+    try {
+      await supabase.from('login_history').insert({
+        user_id: userId,
+        ip_address: null, // Can't get IP from client side
+        user_agent: navigator.userAgent,
+        success
+      });
+    } catch (error) {
+      console.error('Error recording login history:', error);
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
+    
+    if (!error && data.user) {
+      await recordLoginHistory(data.user.id, true);
+    }
+    
     return { error };
   };
 
@@ -157,10 +175,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     // Now sign in with the email
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: emailData,
       password
     });
+    
+    if (!error && data.user) {
+      await recordLoginHistory(data.user.id, true);
+    }
+    
     return { error };
   };
 
