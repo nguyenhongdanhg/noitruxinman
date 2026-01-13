@@ -39,6 +39,8 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [permissions, setPermissions] = useState<Record<string, 'P' | 'KP'>>({});
   const [notes, setNotes] = useState('');
+  // Lọc lớp trong danh sách chọn vắng (riêng biệt với lớp trong báo cáo)
+  const [viewClassFilter, setViewClassFilter] = useState<string>('all');
 
   // Classes available for selection (filtered for class teachers)
   const availableClasses = useMemo(() => {
@@ -48,7 +50,8 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     return classes;
   }, [classes, filterClassId]);
 
-  const filteredStudents = useMemo(() => {
+  // Học sinh theo lớp được chọn cho báo cáo (dùng để tính toán và lưu)
+  const reportStudents = useMemo(() => {
     let result = students;
     // If filterClassId is set (for class teachers), only show their class
     if (filterClassId) {
@@ -59,15 +62,32 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     return result;
   }, [students, selectedClass, filterClassId]);
 
-  // Đánh dấu tất cả vắng
+  // Học sinh hiển thị trong danh sách (có thể lọc theo lớp để dễ chọn)
+  const displayStudents = useMemo(() => {
+    if (viewClassFilter === 'all') {
+      return reportStudents;
+    }
+    return reportStudents.filter((s) => s.classId === viewClassFilter);
+  }, [reportStudents, viewClassFilter]);
+
+  // Lấy các lớp có trong danh sách báo cáo
+  const classesInReport = useMemo(() => {
+    const classIds = new Set(reportStudents.map((s) => s.classId));
+    return classes.filter((c) => classIds.has(c.id));
+  }, [reportStudents, classes]);
+
+  // Đánh dấu tất cả vắng (chỉ học sinh đang hiển thị)
   const markAllAbsent = () => {
-    const allIds = new Set(filteredStudents.map((s) => s.id));
-    setAbsentStudentIds(allIds);
+    const newSet = new Set(absentStudentIds);
+    displayStudents.forEach((s) => newSet.add(s.id));
+    setAbsentStudentIds(newSet);
   };
 
-  // Đánh dấu tất cả đủ (xóa hết vắng)
+  // Đánh dấu tất cả đủ (chỉ học sinh đang hiển thị)
   const markAllPresent = () => {
-    setAbsentStudentIds(new Set());
+    const newSet = new Set(absentStudentIds);
+    displayStudents.forEach((s) => newSet.delete(s.id));
+    setAbsentStudentIds(newSet);
   };
 
   // Toggle học sinh vắng
@@ -81,10 +101,12 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     setAbsentStudentIds(newSet);
   };
 
-  // Học sinh vắng = những người được đánh dấu vắng
-  const absentStudents = filteredStudents.filter((s) => absentStudentIds.has(s.id));
+  // Học sinh vắng = những người được đánh dấu vắng (trong danh sách báo cáo)
+  const absentStudents = reportStudents.filter((s) => absentStudentIds.has(s.id));
   // Số học sinh có mặt = tổng - vắng
-  const presentCount = filteredStudents.length - absentStudentIds.size;
+  const presentCount = reportStudents.length - absentStudents.length;
+  // Số vắng đang hiển thị
+  const displayAbsentCount = displayStudents.filter((s) => absentStudentIds.has(s.id)).length;
 
   const getClassName = (classId: string) => {
     return classes.find((c) => c.id === classId)?.name || classId;
@@ -120,9 +142,9 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
         session: type === 'boarding' ? session : undefined,
         mealType: type === 'meal' ? (mealType as 'breakfast' | 'lunch' | 'dinner') : undefined,
         classId: selectedClass !== 'all' ? selectedClass : (filterClassId || undefined),
-        totalStudents: filteredStudents.length,
+        totalStudents: reportStudents.length,
         presentCount: presentCount,
-        absentCount: absentStudentIds.size,
+        absentCount: absentStudents.length,
         absentStudents: absentStudents.map((s) => ({
           studentId: s.id,
           name: s.name,
@@ -160,9 +182,9 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     message += `📅 Ngày: ${format(new Date(date), 'dd/MM/yyyy', { locale: vi })}\n`;
     message += `👤 Người báo cáo: ${currentUser.name}\n\n`;
     message += `📊 THỐNG KÊ:\n`;
-    message += `• Tổng số: ${filteredStudents.length} học sinh\n`;
+    message += `• Tổng số: ${reportStudents.length} học sinh\n`;
     message += `• Có mặt: ${presentCount} học sinh\n`;
-    message += `• Vắng: ${absentStudentIds.size} học sinh\n\n`;
+    message += `• Vắng: ${absentStudents.length} học sinh\n\n`;
 
     if (absentStudents.length > 0) {
       message += `❌ DANH SÁCH VẮNG:\n`;
@@ -286,31 +308,96 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
       {/* Student List - Click để đánh dấu vắng */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Users className="h-5 w-5 text-primary" />
-              Chọn học sinh vắng ({absentStudentIds.size}/{filteredStudents.length})
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={markAllPresent} className="flex-1 sm:flex-initial">
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Đủ tất cả</span>
-                <span className="sm:hidden">Đủ</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={markAllAbsent} className="flex-1 sm:flex-initial">
-                <XCircle className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Vắng tất cả</span>
-                <span className="sm:hidden">Vắng</span>
-              </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Users className="h-5 w-5 text-primary" />
+                Chọn học sinh vắng ({absentStudents.length}/{reportStudents.length})
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={markAllPresent} className="flex-1 sm:flex-initial">
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Đủ tất cả</span>
+                  <span className="sm:hidden">Đủ</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={markAllAbsent} className="flex-1 sm:flex-initial">
+                  <XCircle className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Vắng tất cả</span>
+                  <span className="sm:hidden">Vắng</span>
+                </Button>
+              </div>
             </div>
+            
+            {/* Lọc theo lớp */}
+            {classesInReport.length > 1 && (
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  variant={viewClassFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewClassFilter('all')}
+                  className="text-xs h-7"
+                >
+                  Tất cả ({reportStudents.length})
+                </Button>
+                {classesInReport.map((c) => {
+                  const classStudentCount = reportStudents.filter((s) => s.classId === c.id).length;
+                  const classAbsentCount = reportStudents.filter((s) => s.classId === c.id && absentStudentIds.has(s.id)).length;
+                  return (
+                    <Button
+                      key={c.id}
+                      variant={viewClassFilter === c.id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setViewClassFilter(c.id)}
+                      className="text-xs h-7"
+                    >
+                      {c.name} {classAbsentCount > 0 && <span className="text-destructive ml-1">({classAbsentCount})</span>}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+            
+            <p className="text-xs text-muted-foreground">
+              Mặc định tất cả đủ. Click vào học sinh để đánh dấu vắng.
+              {viewClassFilter !== 'all' && ` Đang hiển thị: ${displayStudents.length} học sinh`}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Mặc định tất cả đủ. Click vào học sinh để đánh dấu vắng.
-          </p>
         </CardHeader>
         <CardContent className="pt-0 sm:pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-            {filteredStudents.map((student) => {
+            {displayStudents.map((student) => {
+              const isAbsent = absentStudentIds.has(student.id);
+              return (
+                <div
+                  key={student.id}
+                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${
+                    isAbsent
+                      ? 'bg-destructive/10 border-destructive/30'
+                      : 'bg-success/5 border-success/20'
+                  }`}
+                  onClick={() => toggleAbsent(student.id)}
+                >
+                  <Checkbox
+                    checked={isAbsent}
+                    onCheckedChange={() => toggleAbsent(student.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate text-sm sm:text-base">{student.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {getClassName(student.classId)} • P.{student.room} • M.{student.mealGroup}
+                    </p>
+                  </div>
+                  {isAbsent ? (
+                    <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
               const isAbsent = absentStudentIds.has(student.id);
               return (
                 <div
@@ -381,7 +468,7 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-2 sm:gap-6">
               <div className="text-center p-2 sm:p-3 rounded-lg bg-muted/50">
-                <p className="text-xl sm:text-3xl font-bold text-foreground">{filteredStudents.length}</p>
+                <p className="text-xl sm:text-3xl font-bold text-foreground">{reportStudents.length}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">Tổng số</p>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
@@ -389,7 +476,7 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
                 <p className="text-xs sm:text-sm text-muted-foreground">Có mặt</p>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-destructive/10">
-                <p className="text-xl sm:text-3xl font-bold text-destructive">{absentStudentIds.size}</p>
+                <p className="text-xl sm:text-3xl font-bold text-destructive">{absentStudents.length}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">Vắng</p>
               </div>
             </div>
