@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_features: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          display_order: number | null
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       attendance_reports: {
         Row: {
           absent_count: number
@@ -177,7 +213,7 @@ export type Database = {
           can_edit: boolean
           can_view: boolean
           created_at: string
-          feature: Database["public"]["Enums"]["app_feature"]
+          feature: string
           id: string
           updated_at: string
           user_id: string
@@ -188,7 +224,7 @@ export type Database = {
           can_edit?: boolean
           can_view?: boolean
           created_at?: string
-          feature: Database["public"]["Enums"]["app_feature"]
+          feature: string
           id?: string
           updated_at?: string
           user_id: string
@@ -199,7 +235,7 @@ export type Database = {
           can_edit?: boolean
           can_view?: boolean
           created_at?: string
-          feature?: Database["public"]["Enums"]["app_feature"]
+          feature?: string
           id?: string
           updated_at?: string
           user_id?: string

@@ -20,6 +20,7 @@ import { AddUserDialog } from '@/components/users/AddUserDialog';
 import { LoginHistory } from '@/components/users/LoginHistory';
 import { PermissionManager } from '@/components/users/PermissionManager';
 import { UserExcelExport } from '@/components/users/UserExcelExport';
+import { FeatureManager } from '@/components/users/FeatureManager';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -738,6 +739,9 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Feature Manager - Quản lý danh sách tính năng phân quyền */}
+      <FeatureManager />
 
       {/* Login History */}
       <LoginHistory />
