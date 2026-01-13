@@ -382,43 +382,74 @@ export default function Statistics() {
       const classData: any[][] = [
         [`THỐNG KÊ BỮA ĂN - LỚP ${cls.name}`],
         [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
+        [`Chú thích: 1 = Có mặt, 0 = Vắng, - = Chưa điểm danh | Định dạng: Sáng-Trưa-Tối (VD: 101 = Ăn sáng, vắng trưa, ăn tối)`],
         [],
       ];
 
-      // Header row
+      // Header row - combine meals into single day column
       const headerRow = ['STT', 'Họ và tên', 'Mâm ăn'];
       days.forEach(day => {
-        headerRow.push(`${format(day, 'dd/MM')} Sáng`, `${format(day, 'dd/MM')} Trưa`, `${format(day, 'dd/MM')} Tối`);
+        headerRow.push(format(day, 'dd/MM'));
       });
-      headerRow.push('Số gạo (kg)');
+      headerRow.push('Tổng Sáng', 'Tổng Trưa', 'Tổng Tối', 'Số gạo (kg)');
       classData.push(headerRow);
 
       // Student rows
       classStudents.forEach((student, idx) => {
         const row: any[] = [idx + 1, student.name, student.mealGroup];
-        let totalLunchDinnerMeals = 0;
+        let totalBreakfast = 0;
+        let totalLunch = 0;
+        let totalDinner = 0;
         
         days.forEach(day => {
           const dayStr = format(day, 'yyyy-MM-dd');
           const dayReports = mealReports.filter(r => r.date === dayStr);
           
-          ['breakfast', 'lunch', 'dinner'].forEach(mealType => {
-            const report = dayReports.find(r => r.mealType === mealType);
-            if (!report) {
-              row.push('-');
+          const breakfastReport = dayReports.find(r => r.mealType === 'breakfast');
+          const lunchReport = dayReports.find(r => r.mealType === 'lunch');
+          const dinnerReport = dayReports.find(r => r.mealType === 'dinner');
+          
+          // Check if any report exists for this day
+          if (!breakfastReport && !lunchReport && !dinnerReport) {
+            row.push('-');
+          } else {
+            let dayCode = '';
+            
+            // Breakfast
+            if (!breakfastReport) {
+              dayCode += '-';
             } else {
-              const isAbsent = report.absentStudents.some(a => a.studentId === student.id);
-              row.push(isAbsent ? 'V' : 'X');
-              // Count lunch and dinner meals where student is present
-              if (!isAbsent && (mealType === 'lunch' || mealType === 'dinner')) {
-                totalLunchDinnerMeals++;
-              }
+              const isAbsent = breakfastReport.absentStudents.some(a => a.studentId === student.id);
+              dayCode += isAbsent ? '0' : '1';
+              if (!isAbsent) totalBreakfast++;
             }
-          });
+            
+            // Lunch
+            if (!lunchReport) {
+              dayCode += '-';
+            } else {
+              const isAbsent = lunchReport.absentStudents.some(a => a.studentId === student.id);
+              dayCode += isAbsent ? '0' : '1';
+              if (!isAbsent) totalLunch++;
+            }
+            
+            // Dinner
+            if (!dinnerReport) {
+              dayCode += '-';
+            } else {
+              const isAbsent = dinnerReport.absentStudents.some(a => a.studentId === student.id);
+              dayCode += isAbsent ? '0' : '1';
+              if (!isAbsent) totalDinner++;
+            }
+            
+            row.push(dayCode);
+          }
         });
         
+        // Add totals for each meal type
+        row.push(totalBreakfast, totalLunch, totalDinner);
         // Add rice consumption: 0.2kg per lunch/dinner meal
-        const riceAmount = (totalLunchDinnerMeals * 0.2).toFixed(1);
+        const riceAmount = ((totalLunch + totalDinner) * 0.2).toFixed(1);
         row.push(parseFloat(riceAmount));
         classData.push(row);
       });
@@ -469,50 +500,80 @@ export default function Statistics() {
       [`THỐNG KÊ BỮA ĂN - LỚP ${cls?.name || mealExportClass}`],
       [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
       [`Xuất lúc: ${format(new Date(), 'HH:mm dd/MM/yyyy')}`],
+      [`Chú thích: 1 = Có mặt, 0 = Vắng, - = Chưa điểm danh | Định dạng: Sáng-Trưa-Tối (VD: 101 = Ăn sáng, vắng trưa, ăn tối)`],
       [],
     ];
 
-    // Header row
+    // Header row - combine meals into single day column
     const headerRow = ['STT', 'Họ và tên', 'Mâm ăn'];
     days.forEach(day => {
-      headerRow.push(`${format(day, 'dd/MM')} Sáng`, `${format(day, 'dd/MM')} Trưa`, `${format(day, 'dd/MM')} Tối`);
+      headerRow.push(format(day, 'dd/MM'));
     });
-    headerRow.push('Số gạo (kg)');
+    headerRow.push('Tổng Sáng', 'Tổng Trưa', 'Tổng Tối', 'Số gạo (kg)');
     classData.push(headerRow);
 
     // Student rows
     classStudents.forEach((student, idx) => {
       const row: any[] = [idx + 1, student.name, student.mealGroup];
-      let totalLunchDinnerMeals = 0;
+      let totalBreakfast = 0;
+      let totalLunch = 0;
+      let totalDinner = 0;
       
       days.forEach(day => {
         const dayStr = format(day, 'yyyy-MM-dd');
         const dayReports = mealReports.filter(r => r.date === dayStr);
         
-        ['breakfast', 'lunch', 'dinner'].forEach(mealType => {
-          const report = dayReports.find(r => r.mealType === mealType);
-          if (!report) {
-            row.push('-');
+        const breakfastReport = dayReports.find(r => r.mealType === 'breakfast');
+        const lunchReport = dayReports.find(r => r.mealType === 'lunch');
+        const dinnerReport = dayReports.find(r => r.mealType === 'dinner');
+        
+        // Check if any report exists for this day
+        if (!breakfastReport && !lunchReport && !dinnerReport) {
+          row.push('-');
+        } else {
+          let dayCode = '';
+          
+          // Breakfast
+          if (!breakfastReport) {
+            dayCode += '-';
           } else {
-            const isAbsent = report.absentStudents.some(a => a.studentId === student.id);
-            row.push(isAbsent ? 'V' : 'X');
-            // Count lunch and dinner meals where student is present
-            if (!isAbsent && (mealType === 'lunch' || mealType === 'dinner')) {
-              totalLunchDinnerMeals++;
-            }
+            const isAbsent = breakfastReport.absentStudents.some(a => a.studentId === student.id);
+            dayCode += isAbsent ? '0' : '1';
+            if (!isAbsent) totalBreakfast++;
           }
-        });
+          
+          // Lunch
+          if (!lunchReport) {
+            dayCode += '-';
+          } else {
+            const isAbsent = lunchReport.absentStudents.some(a => a.studentId === student.id);
+            dayCode += isAbsent ? '0' : '1';
+            if (!isAbsent) totalLunch++;
+          }
+          
+          // Dinner
+          if (!dinnerReport) {
+            dayCode += '-';
+          } else {
+            const isAbsent = dinnerReport.absentStudents.some(a => a.studentId === student.id);
+            dayCode += isAbsent ? '0' : '1';
+            if (!isAbsent) totalDinner++;
+          }
+          
+          row.push(dayCode);
+        }
       });
       
+      // Add totals for each meal type
+      row.push(totalBreakfast, totalLunch, totalDinner);
       // Add rice consumption: 0.2kg per lunch/dinner meal
-      const riceAmount = (totalLunchDinnerMeals * 0.2).toFixed(1);
+      const riceAmount = ((totalLunch + totalDinner) * 0.2).toFixed(1);
       row.push(parseFloat(riceAmount));
       classData.push(row);
     });
 
     // Add legend
     classData.push([]);
-    classData.push(['Chú thích: X = Có mặt, V = Vắng, - = Chưa điểm danh']);
     classData.push(['Số gạo tính: 0.2kg × số bữa trưa/tối có mặt']);
 
     const classSheet = XLSX.utils.aoa_to_sheet(classData);
