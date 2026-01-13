@@ -27,9 +27,23 @@ export default function Statistics() {
   const [mealExportType, setMealExportType] = useState<'day' | 'week' | 'month'>('day');
   const [mealExportDate, setMealExportDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [mealExportClass, setMealExportClass] = useState<string>('all');
+  const [summaryFilterType, setSummaryFilterType] = useState<'day' | 'week' | 'month'>('day');
+  const [summaryFilterDate, setSummaryFilterDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const monthStart = startOfMonth(new Date(selectedMonth + '-01'));
   const monthEnd = endOfMonth(monthStart);
+
+  // Calculate date range for summary stats based on filter
+  const summaryDateRange = useMemo(() => {
+    const baseDate = parseISO(summaryFilterDate);
+    if (summaryFilterType === 'day') {
+      return { start: baseDate, end: baseDate };
+    } else if (summaryFilterType === 'week') {
+      return { start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: endOfWeek(baseDate, { weekStartsOn: 1 }) };
+    } else {
+      return { start: startOfMonth(baseDate), end: endOfMonth(baseDate) };
+    }
+  }, [summaryFilterType, summaryFilterDate]);
 
   const getClassName = (classId: string) => {
     return classes.find((c) => c.id === classId)?.name || classId;
@@ -86,17 +100,64 @@ export default function Statistics() {
     };
   }, [monthReports]);
 
-  // Calculate summary stats - only use the most recent report for each type
+  // Filter reports for summary stats based on date range filter
+  const summaryReports = useMemo(() => {
+    return reports.filter((r) => {
+      const reportDate = parseISO(r.date);
+      return isWithinInterval(reportDate, summaryDateRange);
+    });
+  }, [reports, summaryDateRange]);
+
+  // Group summary reports by type
+  const groupedSummaryReports = useMemo(() => {
+    const eveningStudy: typeof summaryReports = [];
+    const boarding: typeof summaryReports = [];
+    const meals: {
+      breakfast: typeof summaryReports;
+      lunch: typeof summaryReports;
+      dinner: typeof summaryReports;
+    } = {
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+    };
+
+    summaryReports.forEach(r => {
+      if (r.type === 'evening_study') eveningStudy.push(r);
+      else if (r.type === 'boarding') boarding.push(r);
+      else if (r.type === 'meal') {
+        if (r.mealType === 'breakfast') meals.breakfast.push(r);
+        else if (r.mealType === 'lunch') meals.lunch.push(r);
+        else if (r.mealType === 'dinner') meals.dinner.push(r);
+      }
+    });
+
+    // Sort by date descending
+    const sortByDate = (a: typeof summaryReports[0], b: typeof summaryReports[0]) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime();
+
+    return {
+      eveningStudy: eveningStudy.sort(sortByDate),
+      boarding: boarding.sort(sortByDate),
+      meals: {
+        breakfast: meals.breakfast.sort(sortByDate),
+        lunch: meals.lunch.sort(sortByDate),
+        dinner: meals.dinner.sort(sortByDate),
+      },
+    };
+  }, [summaryReports]);
+
+  // Calculate summary stats - only use the most recent report for each type within the selected date range
   const summaryStats = useMemo(() => {
     // Get the most recent report for each type (reports are already sorted by date descending)
-    const latestEveningStudy = groupedReports.eveningStudy[0];
-    const latestBoarding = groupedReports.boarding[0];
+    const latestEveningStudy = groupedSummaryReports.eveningStudy[0];
+    const latestBoarding = groupedSummaryReports.boarding[0];
     
     // For meals, get the most recent report of any meal type
     const allMealReports = [
-      ...groupedReports.meals.breakfast,
-      ...groupedReports.meals.lunch,
-      ...groupedReports.meals.dinner,
+      ...groupedSummaryReports.meals.breakfast,
+      ...groupedSummaryReports.meals.lunch,
+      ...groupedSummaryReports.meals.dinner,
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const latestMeal = allMealReports[0];
 
@@ -111,7 +172,7 @@ export default function Statistics() {
         ? { total: latestMeal.totalStudents, present: latestMeal.presentCount, absent: latestMeal.absentCount }
         : { total: 0, present: 0, absent: 0 },
     };
-  }, [groupedReports]);
+  }, [groupedSummaryReports]);
 
   // Calculate meal group stats for a report
   const getMealGroupStats = (report: typeof monthReports[0]) => {
@@ -533,17 +594,37 @@ export default function Statistics() {
         </Button>
       </div>
 
-      {/* Month Filter */}
+      {/* Summary Filter */}
       <Card>
         <CardContent className="py-3 sm:py-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full sm:w-40"
-            />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Thống kê tổng hợp:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={summaryFilterType} onValueChange={(value: 'day' | 'week' | 'month') => setSummaryFilterType(value)}>
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Theo ngày</SelectItem>
+                  <SelectItem value="week">Theo tuần</SelectItem>
+                  <SelectItem value="month">Theo tháng</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={summaryFilterDate}
+                onChange={(e) => setSummaryFilterDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground ml-auto">
+              {summaryFilterType === 'day' && format(parseISO(summaryFilterDate), 'dd/MM/yyyy', { locale: vi })}
+              {summaryFilterType === 'week' && `${format(summaryDateRange.start, 'dd/MM')} - ${format(summaryDateRange.end, 'dd/MM/yyyy')}`}
+              {summaryFilterType === 'month' && format(parseISO(summaryFilterDate), 'MM/yyyy', { locale: vi })}
+            </p>
           </div>
         </CardContent>
       </Card>
