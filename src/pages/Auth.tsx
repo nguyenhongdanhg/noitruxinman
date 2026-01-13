@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { School, Loader2, User, Phone } from 'lucide-react';
+import { School, Loader2, User, Phone, ArrowLeft, Mail } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const { user, loading, signIn, signInByLogin, signUp } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Login form state - now uses username/phone instead of email
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -24,6 +26,9 @@ export default function Auth() {
   const [registerName, setRegisterName] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
   const [registerPhone, setRegisterPhone] = useState('');
+
+  // Forgot password form state
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
 
   if (loading) {
     return (
@@ -105,6 +110,92 @@ export default function Auth() {
     setIsSubmitting(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+      redirectTo: `${window.location.origin}/auth?reset=true`,
+    });
+
+    if (error) {
+      toast({
+        title: 'Lỗi',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } else {
+      toast({
+        title: 'Đã gửi email',
+        description: 'Vui lòng kiểm tra hộp thư của bạn để đặt lại mật khẩu.'
+      });
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+    }
+
+    setIsSubmitting(false);
+  };
+
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
+                <School className="h-8 w-8 text-primary-foreground" />
+              </div>
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">Quên mật khẩu</CardTitle>
+              <CardDescription className="mt-2">
+                Nhập email để nhận liên kết đặt lại mật khẩu
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="Nhập email của bạn"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang gửi...
+                  </>
+                ) : (
+                  'Gửi liên kết đặt lại'
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowForgotPassword(false)}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Quay lại đăng nhập
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
       <Card className="w-full max-w-md shadow-xl">
@@ -165,6 +256,14 @@ export default function Auth() {
                   ) : (
                     'Đăng nhập'
                   )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full text-sm"
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  Quên mật khẩu?
                 </Button>
               </form>
             </TabsContent>
