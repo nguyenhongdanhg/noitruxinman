@@ -31,10 +31,10 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
   const [selectedClass, setSelectedClass] = useState<string>(filterClassId || 'all');
   const [notes, setNotes] = useState('');
   
-  // Separate state for each meal type
-  const [breakfastStudents, setBreakfastStudents] = useState<Set<string>>(new Set());
-  const [lunchStudents, setLunchStudents] = useState<Set<string>>(new Set());
-  const [dinnerStudents, setDinnerStudents] = useState<Set<string>>(new Set());
+  // Absent students per meal - mặc định đủ, chỉ chọn học sinh vắng
+  const [breakfastAbsent, setBreakfastAbsent] = useState<Set<string>>(new Set());
+  const [lunchAbsent, setLunchAbsent] = useState<Set<string>>(new Set());
+  const [dinnerAbsent, setDinnerAbsent] = useState<Set<string>>(new Set());
   
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [permissions, setPermissions] = useState<Record<string, 'P' | 'KP'>>({});
@@ -59,41 +59,37 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
     return result;
   }, [students, selectedClass, filterClassId]);
 
-  // Select/Deselect all for each meal
-  const selectAllBreakfast = () => {
-    setBreakfastStudents(new Set(filteredStudents.map((s) => s.id)));
-  };
-  const deselectAllBreakfast = () => setBreakfastStudents(new Set());
+  // Đánh dấu tất cả vắng theo bữa
+  const markAllAbsentBreakfast = () => setBreakfastAbsent(new Set(filteredStudents.map((s) => s.id)));
+  const markAllPresentBreakfast = () => setBreakfastAbsent(new Set());
   
-  const selectAllLunch = () => {
-    setLunchStudents(new Set(filteredStudents.map((s) => s.id)));
-  };
-  const deselectAllLunch = () => setLunchStudents(new Set());
+  const markAllAbsentLunch = () => setLunchAbsent(new Set(filteredStudents.map((s) => s.id)));
+  const markAllPresentLunch = () => setLunchAbsent(new Set());
   
-  const selectAllDinner = () => {
-    setDinnerStudents(new Set(filteredStudents.map((s) => s.id)));
-  };
-  const deselectAllDinner = () => setDinnerStudents(new Set());
+  const markAllAbsentDinner = () => setDinnerAbsent(new Set(filteredStudents.map((s) => s.id)));
+  const markAllPresentDinner = () => setDinnerAbsent(new Set());
 
-  // Select/Deselect all three meals
-  const selectAllMeals = () => {
+  // Đánh dấu tất cả vắng cả 3 bữa
+  const markAllAbsentAllMeals = () => {
     const allIds = new Set(filteredStudents.map((s) => s.id));
-    setBreakfastStudents(allIds);
-    setLunchStudents(new Set(allIds));
-    setDinnerStudents(new Set(allIds));
+    setBreakfastAbsent(allIds);
+    setLunchAbsent(new Set(allIds));
+    setDinnerAbsent(new Set(allIds));
   };
 
-  const deselectAllMeals = () => {
-    setBreakfastStudents(new Set());
-    setLunchStudents(new Set());
-    setDinnerStudents(new Set());
+  // Đánh dấu tất cả đủ cả 3 bữa
+  const markAllPresentAllMeals = () => {
+    setBreakfastAbsent(new Set());
+    setLunchAbsent(new Set());
+    setDinnerAbsent(new Set());
   };
 
-  const toggleStudent = (studentId: string, mealType: MealType) => {
-    const setter = mealType === 'breakfast' ? setBreakfastStudents : 
-                   mealType === 'lunch' ? setLunchStudents : setDinnerStudents;
-    const current = mealType === 'breakfast' ? breakfastStudents :
-                    mealType === 'lunch' ? lunchStudents : dinnerStudents;
+  // Toggle học sinh vắng theo bữa
+  const toggleAbsent = (studentId: string, mealType: MealType) => {
+    const setter = mealType === 'breakfast' ? setBreakfastAbsent : 
+                   mealType === 'lunch' ? setLunchAbsent : setDinnerAbsent;
+    const current = mealType === 'breakfast' ? breakfastAbsent :
+                    mealType === 'lunch' ? lunchAbsent : dinnerAbsent;
     
     const newSet = new Set(current);
     if (newSet.has(studentId)) {
@@ -104,10 +100,18 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
     setter(newSet);
   };
 
+  // Lấy danh sách học sinh vắng theo bữa
   const getAbsentStudents = (mealType: MealType) => {
-    const presentSet = mealType === 'breakfast' ? breakfastStudents :
-                       mealType === 'lunch' ? lunchStudents : dinnerStudents;
-    return filteredStudents.filter((s) => !presentSet.has(s.id));
+    const absentSet = mealType === 'breakfast' ? breakfastAbsent :
+                       mealType === 'lunch' ? lunchAbsent : dinnerAbsent;
+    return filteredStudents.filter((s) => absentSet.has(s.id));
+  };
+
+  // Lấy số học sinh có mặt theo bữa
+  const getPresentCount = (mealType: MealType) => {
+    const absentSet = mealType === 'breakfast' ? breakfastAbsent :
+                       mealType === 'lunch' ? lunchAbsent : dinnerAbsent;
+    return filteredStudents.length - absentSet.size;
   };
 
   const getClassName = (classId: string) => {
@@ -137,9 +141,8 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
   };
 
   const saveMealReport = async (mealType: MealType) => {
-    const presentSet = mealType === 'breakfast' ? breakfastStudents :
-                       mealType === 'lunch' ? lunchStudents : dinnerStudents;
     const absentStudents = getAbsentStudents(mealType);
+    const presentCount = getPresentCount(mealType);
 
     try {
       await createReport({
@@ -148,7 +151,7 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
         mealType,
         classId: selectedClass !== 'all' ? selectedClass : (filterClassId || undefined),
         totalStudents: filteredStudents.length,
-        presentCount: presentSet.size,
+        presentCount: presentCount,
         absentCount: absentStudents.length,
         absentStudents: absentStudents.map((s) => ({
           studentId: s.id,
@@ -187,10 +190,9 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
     
     const meals: MealType[] = ['breakfast', 'lunch', 'dinner'];
     meals.forEach((meal) => {
-      const presentSet = meal === 'breakfast' ? breakfastStudents :
-                         meal === 'lunch' ? lunchStudents : dinnerStudents;
+      const presentCount = getPresentCount(meal);
       const absentList = getAbsentStudents(meal);
-      message += `🍽️ ${getMealLabel(meal)}: ${presentSet.size}/${filteredStudents.length} (Vắng: ${absentList.length})\n`;
+      message += `🍽️ ${getMealLabel(meal)}: ${presentCount}/${filteredStudents.length} (Vắng: ${absentList.length})\n`;
     });
 
     const encodedMessage = encodeURIComponent(message);
@@ -254,34 +256,39 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
         </CardContent>
       </Card>
 
-      {/* Quick Actions - Select/Deselect all meals */}
+      {/* Quick Actions */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Utensils className="h-5 w-5 text-primary" />
             Thao tác nhanh
           </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Mặc định tất cả đủ cơm. Click vào học sinh để đánh dấu vắng bữa.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            <Button variant="default" size="sm" onClick={selectAllMeals} className="gap-1">
+            <Button variant="outline" size="sm" onClick={markAllPresentAllMeals} className="gap-1">
               <CheckCircle2 className="h-4 w-4" />
-              Chọn tất cả 3 bữa
+              Đủ tất cả 3 bữa
             </Button>
-            <Button variant="outline" size="sm" onClick={deselectAllMeals} className="gap-1">
+            <Button variant="outline" size="sm" onClick={markAllAbsentAllMeals} className="gap-1">
               <XCircle className="h-4 w-4" />
-              Bỏ chọn tất cả 3 bữa
+              Vắng tất cả 3 bữa
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Three Meal Columns */}
+      {/* Three Meal Columns - Click để đánh dấu vắng */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((mealType) => {
-          const presentSet = mealType === 'breakfast' ? breakfastStudents :
-                             mealType === 'lunch' ? lunchStudents : dinnerStudents;
-          const absentCount = filteredStudents.length - presentSet.size;
+          const absentSet = mealType === 'breakfast' ? breakfastAbsent :
+                             mealType === 'lunch' ? lunchAbsent : dinnerAbsent;
+          const absentCount = absentSet.size;
+          const presentCount = filteredStudents.length - absentCount;
           
           return (
             <Card key={mealType}>
@@ -289,49 +296,49 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{getMealLabel(mealType)}</CardTitle>
                   <span className={`text-sm font-medium ${absentCount > 0 ? 'text-destructive' : 'text-success'}`}>
-                    {presentSet.size}/{filteredStudents.length}
+                    {presentCount}/{filteredStudents.length}
                   </span>
                 </div>
                 <div className="flex gap-1 mt-2">
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={mealType === 'breakfast' ? selectAllBreakfast : 
-                             mealType === 'lunch' ? selectAllLunch : selectAllDinner}
+                    onClick={mealType === 'breakfast' ? markAllPresentBreakfast : 
+                             mealType === 'lunch' ? markAllPresentLunch : markAllPresentDinner}
                     className="flex-1 text-xs"
                   >
                     <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Chọn
+                    Đủ
                   </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={mealType === 'breakfast' ? deselectAllBreakfast :
-                             mealType === 'lunch' ? deselectAllLunch : deselectAllDinner}
+                    onClick={mealType === 'breakfast' ? markAllAbsentBreakfast :
+                             mealType === 'lunch' ? markAllAbsentLunch : markAllAbsentDinner}
                     className="flex-1 text-xs"
                   >
                     <XCircle className="h-3 w-3 mr-1" />
-                    Bỏ
+                    Vắng
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="max-h-[400px] overflow-y-auto space-y-1">
                   {filteredStudents.map((student) => {
-                    const isPresent = presentSet.has(student.id);
+                    const isAbsent = absentSet.has(student.id);
                     return (
                       <div
                         key={student.id}
                         className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer text-sm ${
-                          isPresent
-                            ? 'bg-success/10 border-success/30'
-                            : 'bg-destructive/5 border-destructive/20'
+                          isAbsent
+                            ? 'bg-destructive/10 border-destructive/30'
+                            : 'bg-success/5 border-success/20'
                         }`}
-                        onClick={() => toggleStudent(student.id, mealType)}
+                        onClick={() => toggleAbsent(student.id, mealType)}
                       >
                         <Checkbox
-                          checked={isPresent}
-                          onCheckedChange={() => toggleStudent(student.id, mealType)}
+                          checked={isAbsent}
+                          onCheckedChange={() => toggleAbsent(student.id, mealType)}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-foreground truncate">{student.name}</p>
@@ -339,10 +346,10 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
                             {getClassName(student.classId)} • M.{student.mealGroup}
                           </p>
                         </div>
-                        {isPresent ? (
-                          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-                        ) : (
+                        {isAbsent ? (
                           <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
                         )}
                       </div>
                     );
@@ -423,15 +430,15 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-2 sm:gap-4">
               <div className="text-center p-2 sm:p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
-                <p className="text-lg sm:text-2xl font-bold text-orange-600">{breakfastStudents.size}/{filteredStudents.length}</p>
+                <p className="text-lg sm:text-2xl font-bold text-orange-600">{filteredStudents.length - breakfastAbsent.size}/{filteredStudents.length}</p>
                 <p className="text-xs text-muted-foreground">Bữa sáng</p>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                <p className="text-lg sm:text-2xl font-bold text-green-600">{lunchStudents.size}/{filteredStudents.length}</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600">{filteredStudents.length - lunchAbsent.size}/{filteredStudents.length}</p>
                 <p className="text-xs text-muted-foreground">Bữa trưa</p>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                <p className="text-lg sm:text-2xl font-bold text-blue-600">{dinnerStudents.size}/{filteredStudents.length}</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600">{filteredStudents.length - dinnerAbsent.size}/{filteredStudents.length}</p>
                 <p className="text-xs text-muted-foreground">Bữa tối</p>
               </div>
             </div>

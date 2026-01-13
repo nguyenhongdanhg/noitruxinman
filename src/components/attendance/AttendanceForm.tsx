@@ -34,7 +34,8 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
   const [selectedClass, setSelectedClass] = useState<string>(filterClassId || 'all');
   const [session, setSession] = useState<string>('');
   const [mealType, setMealType] = useState<string>('');
-  const [presentStudents, setPresentStudents] = useState<Set<string>>(new Set());
+  // Absent students - mặc định đủ, chỉ chọn học sinh vắng
+  const [absentStudentIds, setAbsentStudentIds] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [permissions, setPermissions] = useState<Record<string, 'P' | 'KP'>>({});
   const [notes, setNotes] = useState('');
@@ -58,26 +59,32 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     return result;
   }, [students, selectedClass, filterClassId]);
 
-  const selectAll = () => {
+  // Đánh dấu tất cả vắng
+  const markAllAbsent = () => {
     const allIds = new Set(filteredStudents.map((s) => s.id));
-    setPresentStudents(allIds);
+    setAbsentStudentIds(allIds);
   };
 
-  const deselectAll = () => {
-    setPresentStudents(new Set());
+  // Đánh dấu tất cả đủ (xóa hết vắng)
+  const markAllPresent = () => {
+    setAbsentStudentIds(new Set());
   };
 
-  const toggleStudent = (studentId: string) => {
-    const newSet = new Set(presentStudents);
+  // Toggle học sinh vắng
+  const toggleAbsent = (studentId: string) => {
+    const newSet = new Set(absentStudentIds);
     if (newSet.has(studentId)) {
       newSet.delete(studentId);
     } else {
       newSet.add(studentId);
     }
-    setPresentStudents(newSet);
+    setAbsentStudentIds(newSet);
   };
 
-  const absentStudents = filteredStudents.filter((s) => !presentStudents.has(s.id));
+  // Học sinh vắng = những người được đánh dấu vắng
+  const absentStudents = filteredStudents.filter((s) => absentStudentIds.has(s.id));
+  // Số học sinh có mặt = tổng - vắng
+  const presentCount = filteredStudents.length - absentStudentIds.size;
 
   const getClassName = (classId: string) => {
     return classes.find((c) => c.id === classId)?.name || classId;
@@ -114,8 +121,8 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
         mealType: type === 'meal' ? (mealType as 'breakfast' | 'lunch' | 'dinner') : undefined,
         classId: selectedClass !== 'all' ? selectedClass : (filterClassId || undefined),
         totalStudents: filteredStudents.length,
-        presentCount: presentStudents.size,
-        absentCount: absentStudents.length,
+        presentCount: presentCount,
+        absentCount: absentStudentIds.size,
         absentStudents: absentStudents.map((s) => ({
           studentId: s.id,
           name: s.name,
@@ -136,7 +143,7 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
       });
 
       // Reset form after successful save
-      setPresentStudents(new Set());
+      setAbsentStudentIds(new Set());
       setReasons({});
       setPermissions({});
       setNotes('');
@@ -154,8 +161,8 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
     message += `👤 Người báo cáo: ${currentUser.name}\n\n`;
     message += `📊 THỐNG KÊ:\n`;
     message += `• Tổng số: ${filteredStudents.length} học sinh\n`;
-    message += `• Có mặt: ${presentStudents.size} học sinh\n`;
-    message += `• Vắng: ${absentStudents.length} học sinh\n\n`;
+    message += `• Có mặt: ${presentCount} học sinh\n`;
+    message += `• Vắng: ${absentStudentIds.size} học sinh\n\n`;
 
     if (absentStudents.length > 0) {
       message += `❌ DANH SÁCH VẮNG:\n`;
@@ -276,45 +283,48 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
         </CardContent>
       </Card>
 
-      {/* Student List */}
+      {/* Student List - Click để đánh dấu vắng */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Users className="h-5 w-5 text-primary" />
-              Danh sách học sinh ({filteredStudents.length})
+              Chọn học sinh vắng ({absentStudentIds.size}/{filteredStudents.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={selectAll} className="flex-1 sm:flex-initial">
+              <Button variant="outline" size="sm" onClick={markAllPresent} className="flex-1 sm:flex-initial">
                 <CheckCircle2 className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Chọn tất cả</span>
-                <span className="sm:hidden">Chọn</span>
+                <span className="hidden sm:inline">Đủ tất cả</span>
+                <span className="sm:hidden">Đủ</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={deselectAll} className="flex-1 sm:flex-initial">
+              <Button variant="outline" size="sm" onClick={markAllAbsent} className="flex-1 sm:flex-initial">
                 <XCircle className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Bỏ chọn</span>
-                <span className="sm:hidden">Bỏ</span>
+                <span className="hidden sm:inline">Vắng tất cả</span>
+                <span className="sm:hidden">Vắng</span>
               </Button>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Mặc định tất cả đủ. Click vào học sinh để đánh dấu vắng.
+          </p>
         </CardHeader>
         <CardContent className="pt-0 sm:pt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
             {filteredStudents.map((student) => {
-              const isPresent = presentStudents.has(student.id);
+              const isAbsent = absentStudentIds.has(student.id);
               return (
                 <div
                   key={student.id}
                   className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${
-                    isPresent
-                      ? 'bg-success/10 border-success/30'
-                      : 'bg-destructive/5 border-destructive/20'
+                    isAbsent
+                      ? 'bg-destructive/10 border-destructive/30'
+                      : 'bg-success/5 border-success/20'
                   }`}
-                  onClick={() => toggleStudent(student.id)}
+                  onClick={() => toggleAbsent(student.id)}
                 >
                   <Checkbox
-                    checked={isPresent}
-                    onCheckedChange={() => toggleStudent(student.id)}
+                    checked={isAbsent}
+                    onCheckedChange={() => toggleAbsent(student.id)}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate text-sm sm:text-base">{student.name}</p>
@@ -322,10 +332,10 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
                       {getClassName(student.classId)} • P.{student.room} • M.{student.mealGroup}
                     </p>
                   </div>
-                  {isPresent ? (
-                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
-                  ) : (
+                  {isAbsent ? (
                     <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
                   )}
                 </div>
               );
@@ -375,11 +385,11 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
                 <p className="text-xs sm:text-sm text-muted-foreground">Tổng số</p>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
-                <p className="text-xl sm:text-3xl font-bold text-success">{presentStudents.size}</p>
+                <p className="text-xl sm:text-3xl font-bold text-success">{presentCount}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">Có mặt</p>
               </div>
               <div className="text-center p-2 sm:p-3 rounded-lg bg-destructive/10">
-                <p className="text-xl sm:text-3xl font-bold text-destructive">{absentStudents.length}</p>
+                <p className="text-xl sm:text-3xl font-bold text-destructive">{absentStudentIds.size}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">Vắng</p>
               </div>
             </div>
