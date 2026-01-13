@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap } from 'lucide-react';
+import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2 } from 'lucide-react';
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
 import { AddUserDialog } from '@/components/users/AddUserDialog';
@@ -89,6 +89,13 @@ export default function UserManagement() {
   const [editingPhone, setEditingPhone] = useState<string>('');
   const [editingName, setEditingName] = useState<string>('');
 
+  // Reset password state
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserWithRoles | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
   const isAdmin = hasRole('admin');
 
   const fetchUsers = async () => {
@@ -140,6 +147,77 @@ export default function UserManagement() {
     setEditingPhone(user.phone || '');
     setEditingName(user.full_name);
     setEditDialogOpen(true);
+  };
+
+  const handleOpenResetPassword = (user: UserWithRoles) => {
+    setResetPasswordUser(user);
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setResetPasswordDialogOpen(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser) return;
+
+    if (newPassword.length < 6) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu mới phải có ít nhất 6 ký tự',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu xác nhận không khớp',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsResettingPassword(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-reset-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            user_id: resetPasswordUser.id,
+            new_password: newPassword,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Đặt lại mật khẩu thất bại');
+      }
+
+      toast({
+        title: 'Thành công',
+        description: `Đã đặt lại mật khẩu cho ${resetPasswordUser.full_name}`
+      });
+      setResetPasswordDialogOpen(false);
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Không thể đặt lại mật khẩu',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
   };
 
   const handleRoleToggle = (role: AppRole) => {
@@ -360,13 +438,24 @@ export default function UserManagement() {
                       {user.class_id ? classes.find(c => c.id === user.class_id)?.name || user.class_id : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenResetPassword(user)}
+                          title="Đặt lại mật khẩu"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditUser(user)}
+                          title="Chỉnh sửa"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -461,6 +550,61 @@ export default function UserManagement() {
         onOpenChange={setAddDialogOpen} 
         onUserAdded={fetchUsers} 
       />
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Đặt lại mật khẩu
+            </DialogTitle>
+            <DialogDescription>
+              Đặt mật khẩu mới cho: <span className="font-semibold">{resetPasswordUser?.full_name}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Mật khẩu mới</Label>
+              <Input 
+                type="password"
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Ít nhất 6 ký tự"
+                minLength={6}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Xác nhận mật khẩu</Label>
+              <Input 
+                type="password"
+                value={confirmNewPassword} 
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Nhập lại mật khẩu mới"
+                minLength={6}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPasswordDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleResetPassword} disabled={isResettingPassword}>
+              {isResettingPassword ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Đang xử lý...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Đặt lại mật khẩu
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
