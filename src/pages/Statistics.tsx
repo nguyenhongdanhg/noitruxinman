@@ -255,17 +255,39 @@ export default function Statistics() {
     // Get unique meal groups
     const mealGroups = [...new Set(students.map(s => s.mealGroup).filter(Boolean))];
     
-    // Summary sheet with detailed stats by day
+    // Sort classes by grade and name for proper order (6A, 6B, 7A, 7B, ..., 12A, 12B)
+    const sortedClasses = [...classes].sort((a, b) => {
+      if (a.grade !== b.grade) return a.grade - b.grade;
+      return a.name.localeCompare(b.name);
+    });
+    
+    // Summary sheet with rows as days, columns as classes
     const summaryData: any[][] = [
       [`BÁO CÁO THỐNG KÊ BỮA ĂN - TOÀN TRƯỜNG`],
       [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
       [`Xuất lúc: ${format(new Date(), 'HH:mm dd/MM/yyyy')}`],
+      [`Chú thích: S = Sáng, T = Trưa, To = Tối`],
       [],
-      ['TỔNG HỢP THEO NGÀY'],
-      ['Ngày', 'Bữa sáng - Tổng ăn', 'Bữa sáng - Vắng', 'Bữa trưa - Tổng ăn', 'Bữa trưa - Vắng', 'Bữa tối - Tổng ăn', 'Bữa tối - Vắng'],
     ];
 
-    days.forEach(day => {
+    // Header row 1 - Class names (merged cells will be handled by column width)
+    const headerRow1: any[] = ['STT', 'Ngày'];
+    sortedClasses.forEach(cls => {
+      headerRow1.push(cls.name, '', ''); // 3 columns per class
+    });
+    headerRow1.push('Tổng Sáng', 'Tổng Trưa', 'Tổng Tối', 'Tổng Gạo (kg)');
+    summaryData.push(headerRow1);
+    
+    // Header row 2 - Meal types for each class
+    const headerRow2: any[] = ['', ''];
+    sortedClasses.forEach(() => {
+      headerRow2.push('S', 'T', 'To');
+    });
+    headerRow2.push('', '', '', '');
+    summaryData.push(headerRow2);
+
+    // Data rows - each day is a row
+    days.forEach((day, idx) => {
       const dayStr = format(day, 'yyyy-MM-dd');
       const dayReports = mealReports.filter(r => r.date === dayStr);
       
@@ -273,105 +295,93 @@ export default function Statistics() {
       const lunch = dayReports.find(r => r.mealType === 'lunch');
       const dinner = dayReports.find(r => r.mealType === 'dinner');
 
-      summaryData.push([
-        format(day, 'dd/MM/yyyy'),
-        breakfast?.presentCount || 0,
-        breakfast?.absentCount || 0,
-        lunch?.presentCount || 0,
-        lunch?.absentCount || 0,
-        dinner?.presentCount || 0,
-        dinner?.absentCount || 0,
-      ]);
+      const row: any[] = [idx + 1, format(day, 'dd/MM/yyyy')];
+      
+      let totalBreakfast = 0;
+      let totalLunch = 0;
+      let totalDinner = 0;
+      
+      sortedClasses.forEach(cls => {
+        const classStudents = students.filter(s => s.classId === cls.id);
+        const classTotal = classStudents.length;
+        
+        const breakfastAbsent = breakfast?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+        const lunchAbsent = lunch?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+        const dinnerAbsent = dinner?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+        
+        const classBreakfast = breakfast ? classTotal - breakfastAbsent : 0;
+        const classLunch = lunch ? classTotal - lunchAbsent : 0;
+        const classDinner = dinner ? classTotal - dinnerAbsent : 0;
+        
+        row.push(classBreakfast, classLunch, classDinner);
+        
+        totalBreakfast += classBreakfast;
+        totalLunch += classLunch;
+        totalDinner += classDinner;
+      });
+      
+      // Add totals
+      const totalRice = ((totalLunch + totalDinner) * 0.2).toFixed(1);
+      row.push(totalBreakfast, totalLunch, totalDinner, parseFloat(totalRice));
+      
+      summaryData.push(row);
     });
 
-    // Add detailed stats by class for each day
+    // Add summary totals row
     summaryData.push([]);
-    summaryData.push(['CHI TIẾT THEO LỚP']);
+    const totalRow: any[] = ['', 'TỔNG CỘNG'];
+    let grandTotalBreakfast = 0;
+    let grandTotalLunch = 0;
+    let grandTotalDinner = 0;
     
-    days.forEach(day => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const dayReports = mealReports.filter(r => r.date === dayStr);
+    sortedClasses.forEach(cls => {
+      let classBreakfastTotal = 0;
+      let classLunchTotal = 0;
+      let classDinnerTotal = 0;
       
-      if (dayReports.length > 0) {
-        summaryData.push([]);
-        summaryData.push([`Ngày ${format(day, 'dd/MM/yyyy')}`]);
-        summaryData.push(['Lớp', 'Tổng HS', 'Bữa sáng - Ăn', 'Bữa sáng - Vắng', 'Bữa trưa - Ăn', 'Bữa trưa - Vắng', 'Bữa tối - Ăn', 'Bữa tối - Vắng']);
+      days.forEach(day => {
+        const dayStr = format(day, 'yyyy-MM-dd');
+        const dayReports = mealReports.filter(r => r.date === dayStr);
         
-        classes.forEach(cls => {
-          const classStudents = students.filter(s => s.classId === cls.id);
-          if (classStudents.length === 0) return;
-          
-          const breakfast = dayReports.find(r => r.mealType === 'breakfast');
-          const lunch = dayReports.find(r => r.mealType === 'lunch');
-          const dinner = dayReports.find(r => r.mealType === 'dinner');
-          
-          const breakfastAbsent = breakfast?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-          const lunchAbsent = lunch?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-          const dinnerAbsent = dinner?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-          
-          summaryData.push([
-            cls.name,
-            classStudents.length,
-            classStudents.length - breakfastAbsent,
-            breakfastAbsent,
-            classStudents.length - lunchAbsent,
-            lunchAbsent,
-            classStudents.length - dinnerAbsent,
-            dinnerAbsent,
-          ]);
-        });
-      }
+        const breakfast = dayReports.find(r => r.mealType === 'breakfast');
+        const lunch = dayReports.find(r => r.mealType === 'lunch');
+        const dinner = dayReports.find(r => r.mealType === 'dinner');
+        
+        const classStudents = students.filter(s => s.classId === cls.id);
+        const classTotal = classStudents.length;
+        
+        const breakfastAbsent = breakfast?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+        const lunchAbsent = lunch?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+        const dinnerAbsent = dinner?.absentStudents.filter(a => a.classId === cls.id).length || 0;
+        
+        classBreakfastTotal += breakfast ? classTotal - breakfastAbsent : 0;
+        classLunchTotal += lunch ? classTotal - lunchAbsent : 0;
+        classDinnerTotal += dinner ? classTotal - dinnerAbsent : 0;
+      });
+      
+      totalRow.push(classBreakfastTotal, classLunchTotal, classDinnerTotal);
+      grandTotalBreakfast += classBreakfastTotal;
+      grandTotalLunch += classLunchTotal;
+      grandTotalDinner += classDinnerTotal;
     });
-
-    // Add detailed stats by meal group for each day
-    summaryData.push([]);
-    summaryData.push(['CHI TIẾT THEO MÂM ĂN']);
     
-    days.forEach(day => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const dayReports = mealReports.filter(r => r.date === dayStr);
-      
-      if (dayReports.length > 0) {
-        summaryData.push([]);
-        summaryData.push([`Ngày ${format(day, 'dd/MM/yyyy')}`]);
-        summaryData.push(['Mâm ăn', 'Tổng HS', 'Bữa sáng - Ăn', 'Bữa sáng - Vắng', 'Bữa trưa - Ăn', 'Bữa trưa - Vắng', 'Bữa tối - Ăn', 'Bữa tối - Vắng']);
-        
-        mealGroups.forEach(group => {
-          const groupStudents = students.filter(s => s.mealGroup === group);
-          if (groupStudents.length === 0) return;
-          
-          const breakfast = dayReports.find(r => r.mealType === 'breakfast');
-          const lunch = dayReports.find(r => r.mealType === 'lunch');
-          const dinner = dayReports.find(r => r.mealType === 'dinner');
-          
-          const breakfastAbsent = breakfast?.absentStudents.filter(a => {
-            const student = students.find(s => s.id === a.studentId);
-            return student?.mealGroup === group;
-          }).length || 0;
-          const lunchAbsent = lunch?.absentStudents.filter(a => {
-            const student = students.find(s => s.id === a.studentId);
-            return student?.mealGroup === group;
-          }).length || 0;
-          const dinnerAbsent = dinner?.absentStudents.filter(a => {
-            const student = students.find(s => s.id === a.studentId);
-            return student?.mealGroup === group;
-          }).length || 0;
-          
-          summaryData.push([
-            `Mâm ${group}`,
-            groupStudents.length,
-            groupStudents.length - breakfastAbsent,
-            breakfastAbsent,
-            groupStudents.length - lunchAbsent,
-            lunchAbsent,
-            groupStudents.length - dinnerAbsent,
-            dinnerAbsent,
-          ]);
-        });
-      }
-    });
+    const grandTotalRice = ((grandTotalLunch + grandTotalDinner) * 0.2).toFixed(1);
+    totalRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, parseFloat(grandTotalRice));
+    summaryData.push(totalRow);
 
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    
+    // Set column widths
+    const colWidths: any[] = [
+      { wch: 5 },  // STT
+      { wch: 12 }, // Ngày
+    ];
+    sortedClasses.forEach(() => {
+      colWidths.push({ wch: 4 }, { wch: 4 }, { wch: 4 }); // S, T, To
+    });
+    colWidths.push({ wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }); // Totals
+    summarySheet['!cols'] = colWidths;
+    
     XLSX.utils.book_append_sheet(wb, summarySheet, 'Tổng hợp');
 
     // Detailed sheet per class
