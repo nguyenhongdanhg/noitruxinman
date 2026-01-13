@@ -71,6 +71,42 @@ export type Database = {
         }
         Relationships: []
       }
+      students: {
+        Row: {
+          address: string | null
+          class_id: string
+          created_at: string
+          gender: string | null
+          id: string
+          is_boarding: boolean | null
+          name: string
+          parent_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          class_id: string
+          created_at?: string
+          gender?: string | null
+          id?: string
+          is_boarding?: boolean | null
+          name: string
+          parent_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          class_id?: string
+          created_at?: string
+          gender?: string | null
+          id?: string
+          is_boarding?: boolean | null
+          name?: string
+          parent_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           can_create: boolean

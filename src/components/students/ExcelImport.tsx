@@ -1,12 +1,11 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { useApp } from '@/contexts/AppContext';
-import { Student } from '@/types';
-import { Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
+import { useStudents } from '@/hooks/useStudents';
+import { Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export function ExcelImport() {
-  const { setStudents, students } = useApp();
+  const { bulkAddStudents } = useStudents();
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -16,18 +15,18 @@ export function ExcelImport() {
     const headers = [
       'A: STT',
       'B: Họ và tên', 
-      'C: Ngày sinh (DD/MM/YYYY)',
-      'D: Lớp',
-      'E: Phòng ở',
-      'F: Mâm ăn'
+      'C: Lớp',
+      'D: Giới tính (Nam/Nữ)',
+      'E: SĐT Phụ huynh',
+      'F: Địa chỉ'
     ];
     
-    const dataHeaders = ['STT', 'Họ và tên', 'Ngày sinh', 'Lớp', 'Phòng ở', 'Mâm ăn'];
+    const dataHeaders = ['STT', 'Họ và tên', 'Lớp', 'Giới tính', 'SĐT Phụ huynh', 'Địa chỉ'];
     
     const examples = [
-      ['1', 'Nguyễn Văn An', '15/05/2010', '6A', 'P101', 'M1'],
-      ['2', 'Trần Thị Bình', '20/08/2010', '6A', 'P102', 'M1'],
-      ['3', 'Lê Hoàng Cường', '10/03/2010', '6B', 'P103', 'M2'],
+      ['1', 'Nguyễn Văn An', '6A', 'Nam', '0901234567', 'Hà Nội'],
+      ['2', 'Trần Thị Bình', '6A', 'Nữ', '0912345678', 'Hà Nội'],
+      ['3', 'Lê Hoàng Cường', '6B', 'Nam', '0923456789', 'Hà Nội'],
     ];
 
     // Tạo nội dung với dòng hướng dẫn cột và dữ liệu
@@ -61,8 +60,6 @@ export function ExcelImport() {
       const text = await file.text();
       const lines = text.split('\n').filter((line) => line.trim());
       
-      // Tự động detect separator: tab, dấu phẩy hoặc chấm phẩy
-      const firstLine = lines[0];
       // Bỏ qua dòng comment bắt đầu bằng #
       const dataLines = lines.filter(line => !line.trim().startsWith('#'));
       if (dataLines.length === 0) return;
@@ -70,40 +67,45 @@ export function ExcelImport() {
       const headerLine = dataLines[0];
       const separator = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
       
-      const newStudents: Student[] = [];
+      const newStudents: Array<{
+        name: string;
+        classId: string;
+        dateOfBirth: string;
+        room: string;
+        mealGroup: string;
+        gender?: string;
+        parentPhone?: string;
+        address?: string;
+      }> = [];
 
       for (let i = 1; i < dataLines.length; i++) {
         // Xử lý giá trị có dấu ngoặc kép
         const rawValues = dataLines[i].split(separator);
         const values = rawValues.map(v => v.trim().replace(/^"|"$/g, ''));
-        if (values.length >= 5) {
+        if (values.length >= 3) {
           const name = values[1]?.trim();
-          const dobParts = values[2]?.trim().split('/');
-          const classId = values[3]?.trim().toLowerCase().replace(' ', '');
-          const room = values[4]?.trim();
-          const mealGroup = values[5]?.trim() || 'M1';
+          const classId = values[2]?.trim().toLowerCase().replace(' ', '');
+          const gender = values[3]?.trim() || undefined;
+          const parentPhone = values[4]?.trim() || undefined;
+          const address = values[5]?.trim() || undefined;
 
-          if (name && dobParts?.length === 3) {
-            const dateOfBirth = `${dobParts[2]}-${dobParts[1].padStart(2, '0')}-${dobParts[0].padStart(2, '0')}`;
-            
+          if (name && classId) {
             newStudents.push({
-              id: `imported-${Date.now()}-${i}`,
               name,
-              dateOfBirth,
               classId,
-              room,
-              mealGroup,
+              dateOfBirth: '',
+              room: '',
+              mealGroup: 'M1',
+              gender,
+              parentPhone,
+              address,
             });
           }
         }
       }
 
       if (newStudents.length > 0) {
-        setStudents([...students, ...newStudents]);
-        toast({
-          title: 'Nhập dữ liệu thành công',
-          description: `Đã thêm ${newStudents.length} học sinh mới`,
-        });
+        await bulkAddStudents(newStudents);
       } else {
         toast({
           title: 'Không có dữ liệu',
@@ -148,7 +150,7 @@ export function ExcelImport() {
           disabled={importing}
           className="gap-2 gradient-primary hover:opacity-90"
         >
-          <Upload className="h-4 w-4" />
+          {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {importing ? 'Đang nhập...' : 'Nhập từ file'}
         </Button>
 
@@ -174,7 +176,7 @@ export function ExcelImport() {
           </li>
           <li className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-warning" />
-            Ngày sinh định dạng: DD/MM/YYYY
+            Cột bắt buộc: Họ tên, Lớp
           </li>
         </ul>
       </div>
