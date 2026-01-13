@@ -7,6 +7,9 @@ export interface DbStudent {
   id: string;
   name: string;
   class_id: string;
+  date_of_birth: string | null;
+  room: string | null;
+  meal_group: string | null;
   gender: string | null;
   parent_phone: string | null;
   address: string | null;
@@ -35,9 +38,9 @@ function dbToAppStudent(dbStudent: DbStudent): Student {
     id: dbStudent.id,
     name: dbStudent.name,
     classId: dbStudent.class_id,
-    dateOfBirth: '', // Not stored in DB yet
-    room: '', // Not stored in DB yet
-    mealGroup: 'M1', // Default value
+    dateOfBirth: dbStudent.date_of_birth || '',
+    room: dbStudent.room || '',
+    mealGroup: dbStudent.meal_group || 'M1',
     gender: dbStudent.gender || undefined,
     parentPhone: dbStudent.parent_phone || undefined,
     address: dbStudent.address || undefined,
@@ -49,6 +52,9 @@ function dbToAppStudent(dbStudent: DbStudent): Student {
 interface DbStudentInsert {
   name: string;
   class_id: string;
+  date_of_birth?: string | null;
+  room?: string | null;
+  meal_group?: string | null;
   gender?: string | null;
   parent_phone?: string | null;
   address?: string | null;
@@ -59,6 +65,9 @@ interface DbStudentInsert {
 interface DbStudentUpdate {
   name?: string;
   class_id?: string;
+  date_of_birth?: string | null;
+  room?: string | null;
+  meal_group?: string | null;
   gender?: string | null;
   parent_phone?: string | null;
   address?: string | null;
@@ -70,6 +79,9 @@ function appToDbStudentInsert(student: Omit<Student, 'id'>): DbStudentInsert {
   return {
     name: student.name,
     class_id: student.classId,
+    date_of_birth: student.dateOfBirth || null,
+    room: student.room || null,
+    meal_group: student.mealGroup || 'M1',
     gender: student.gender || null,
     parent_phone: student.parentPhone || null,
     address: student.address || null,
@@ -83,6 +95,9 @@ function appToDbStudentUpdate(student: Partial<Student>): DbStudentUpdate {
   
   if (student.name !== undefined) result.name = student.name;
   if (student.classId !== undefined) result.class_id = student.classId;
+  if (student.dateOfBirth !== undefined) result.date_of_birth = student.dateOfBirth || null;
+  if (student.room !== undefined) result.room = student.room || null;
+  if (student.mealGroup !== undefined) result.meal_group = student.mealGroup || null;
   if (student.gender !== undefined) result.gender = student.gender;
   if (student.parentPhone !== undefined) result.parent_phone = student.parentPhone;
   if (student.address !== undefined) result.address = student.address;
