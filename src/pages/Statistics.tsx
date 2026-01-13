@@ -390,11 +390,13 @@ export default function Statistics() {
       days.forEach(day => {
         headerRow.push(`${format(day, 'dd/MM')} Sáng`, `${format(day, 'dd/MM')} Trưa`, `${format(day, 'dd/MM')} Tối`);
       });
+      headerRow.push('Số gạo (kg)');
       classData.push(headerRow);
 
       // Student rows
       classStudents.forEach((student, idx) => {
         const row: any[] = [idx + 1, student.name, student.mealGroup];
+        let totalLunchDinnerMeals = 0;
         
         days.forEach(day => {
           const dayStr = format(day, 'yyyy-MM-dd');
@@ -407,10 +409,17 @@ export default function Statistics() {
             } else {
               const isAbsent = report.absentStudents.some(a => a.studentId === student.id);
               row.push(isAbsent ? 'V' : 'X');
+              // Count lunch and dinner meals where student is present
+              if (!isAbsent && (mealType === 'lunch' || mealType === 'dinner')) {
+                totalLunchDinnerMeals++;
+              }
             }
           });
         });
         
+        // Add rice consumption: 0.2kg per lunch/dinner meal
+        const riceAmount = (totalLunchDinnerMeals * 0.2).toFixed(1);
+        row.push(parseFloat(riceAmount));
         classData.push(row);
       });
 
@@ -468,11 +477,13 @@ export default function Statistics() {
     days.forEach(day => {
       headerRow.push(`${format(day, 'dd/MM')} Sáng`, `${format(day, 'dd/MM')} Trưa`, `${format(day, 'dd/MM')} Tối`);
     });
+    headerRow.push('Số gạo (kg)');
     classData.push(headerRow);
 
     // Student rows
     classStudents.forEach((student, idx) => {
       const row: any[] = [idx + 1, student.name, student.mealGroup];
+      let totalLunchDinnerMeals = 0;
       
       days.forEach(day => {
         const dayStr = format(day, 'yyyy-MM-dd');
@@ -485,16 +496,24 @@ export default function Statistics() {
           } else {
             const isAbsent = report.absentStudents.some(a => a.studentId === student.id);
             row.push(isAbsent ? 'V' : 'X');
+            // Count lunch and dinner meals where student is present
+            if (!isAbsent && (mealType === 'lunch' || mealType === 'dinner')) {
+              totalLunchDinnerMeals++;
+            }
           }
         });
       });
       
+      // Add rice consumption: 0.2kg per lunch/dinner meal
+      const riceAmount = (totalLunchDinnerMeals * 0.2).toFixed(1);
+      row.push(parseFloat(riceAmount));
       classData.push(row);
     });
 
     // Add legend
     classData.push([]);
     classData.push(['Chú thích: X = Có mặt, V = Vắng, - = Chưa điểm danh']);
+    classData.push(['Số gạo tính: 0.2kg × số bữa trưa/tối có mặt']);
 
     const classSheet = XLSX.utils.aoa_to_sheet(classData);
     XLSX.utils.book_append_sheet(wb, classSheet, 'Chi tiết');
