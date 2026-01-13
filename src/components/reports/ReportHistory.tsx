@@ -21,8 +21,19 @@ import {
 } from '@/components/ui/table';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Download, FileText, Calendar, Filter } from 'lucide-react';
+import { Download, FileText, Calendar, Filter, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface ReportHistoryProps {
   type: 'evening_study' | 'boarding' | 'meal';
@@ -30,7 +41,7 @@ interface ReportHistoryProps {
 }
 
 export function ReportHistory({ type, title }: ReportHistoryProps) {
-  const { reports, classes, students } = useApp();
+  const { reports, classes, students, setReports } = useApp();
   const { toast } = useToast();
   const [dateFilter, setDateFilter] = useState<'day' | 'week' | 'month'>('day');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -164,6 +175,17 @@ export function ReportHistory({ type, title }: ReportHistoryProps) {
     });
   };
 
+  const handleDeleteAllReports = () => {
+    const remainingReports = reports.filter(r => r.type !== type);
+    setReports(remainingReports);
+    toast({
+      title: 'Xóa thành công',
+      description: `Đã xóa tất cả báo cáo ${title}`,
+    });
+  };
+
+  const reportsByType = reports.filter(r => r.type === type);
+
   return (
     <Card>
       <CardHeader>
@@ -202,6 +224,31 @@ export function ReportHistory({ type, title }: ReportHistoryProps) {
               <Download className="h-4 w-4" />
               Xuất báo cáo
             </Button>
+            
+            {reportsByType.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    Xóa tất cả
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xác nhận xóa tất cả báo cáo {title}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Bạn có chắc muốn xóa tất cả {reportsByType.length} báo cáo? Hành động này không thể hoàn tác.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAllReports} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Xóa tất cả
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </CardHeader>
