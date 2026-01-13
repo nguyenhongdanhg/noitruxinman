@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { StudentTable } from '@/components/students/StudentTable';
 import { ExcelImport } from '@/components/students/ExcelImport';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ import {
 
 export default function Students() {
   const { students, setStudents, classes } = useApp();
+  const { hasRole } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -46,6 +48,9 @@ export default function Students() {
     room: '',
     mealGroup: 'M1',
   });
+
+  // Chỉ admin hoặc class_teacher mới có quyền sửa/xóa
+  const canEditDelete = hasRole('admin') || hasRole('class_teacher');
 
   const openAddDialog = () => {
     setEditingStudent(null);
@@ -127,41 +132,43 @@ export default function Students() {
           </h1>
           <p className="text-muted-foreground mt-1">Danh sách và thông tin học sinh nội trú</p>
         </div>
-        <div className="flex gap-2">
-          {students.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  Xóa tất cả
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Xác nhận xóa tất cả học sinh?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Bạn có chắc muốn xóa tất cả {students.length} học sinh? Hành động này không thể hoàn tác.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+        {canEditDelete && (
+          <div className="flex gap-2">
+            {students.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="gap-2">
+                    <Trash2 className="h-4 w-4" />
                     Xóa tất cả
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-          <Button onClick={openAddDialog} className="gap-2 gradient-primary">
-            <UserPlus className="h-4 w-4" />
-            Thêm học sinh
-          </Button>
-        </div>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xác nhận xóa tất cả học sinh?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Bạn có chắc muốn xóa tất cả {students.length} học sinh? Hành động này không thể hoàn tác.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Xóa tất cả
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button onClick={openAddDialog} className="gap-2 gradient-primary">
+              <UserPlus className="h-4 w-4" />
+              Thêm học sinh
+            </Button>
+          </div>
+        )}
       </div>
 
-      <ExcelImport />
+      {canEditDelete && <ExcelImport />}
 
-      <StudentTable onEdit={openEditDialog} onDelete={handleDelete} />
+      <StudentTable onEdit={canEditDelete ? openEditDialog : undefined} onDelete={canEditDelete ? handleDelete : undefined} />
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">

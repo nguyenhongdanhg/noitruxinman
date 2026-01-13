@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Student } from '@/types';
 import {
   Table,
@@ -42,10 +43,14 @@ interface StudentTableProps {
 
 export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
   const { students, setStudents, classes } = useApp();
+  const { hasRole } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Chỉ admin hoặc class_teacher mới có quyền sửa/xóa
+  const canEditDelete = hasRole('admin') || hasRole('class_teacher');
 
   const filteredStudents = students.filter((student) => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -160,7 +165,7 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
               <TableHead>Lớp</TableHead>
               <TableHead>Phòng ở</TableHead>
               <TableHead>Mâm ăn</TableHead>
-              <TableHead className="w-24 text-center">Thao tác</TableHead>
+              {canEditDelete && <TableHead className="w-24 text-center">Thao tác</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -192,26 +197,28 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
                     {student.mealGroup}
                   </span>
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-primary"
-                      onClick={() => onEdit?.(student)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => onDelete?.(student.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+                {canEditDelete && (
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => onEdit?.(student)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => onDelete?.(student.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
