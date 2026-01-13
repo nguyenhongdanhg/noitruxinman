@@ -19,6 +19,7 @@ import { UserExcelImport } from '@/components/users/UserExcelImport';
 import { AddUserDialog } from '@/components/users/AddUserDialog';
 import { LoginHistory } from '@/components/users/LoginHistory';
 import { PermissionManager } from '@/components/users/PermissionManager';
+import { UserExcelExport } from '@/components/users/UserExcelExport';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -411,7 +412,7 @@ export default function UserManagement() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <UserExcelImport onImportComplete={fetchUsers} />
         
         <div className="rounded-xl border bg-card p-6 shadow-sm">
@@ -429,6 +430,8 @@ export default function UserManagement() {
             Thêm tài khoản mới
           </Button>
         </div>
+
+        <UserExcelExport users={users} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
