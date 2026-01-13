@@ -86,32 +86,32 @@ export default function Statistics() {
     };
   }, [monthReports]);
 
-  // Calculate summary stats
+  // Calculate summary stats - only use the most recent report for each type
   const summaryStats = useMemo(() => {
-    const stats = {
-      eveningStudy: { total: 0, present: 0, absent: 0 },
-      boarding: { total: 0, present: 0, absent: 0 },
-      meals: { total: 0, present: 0, absent: 0 },
+    // Get the most recent report for each type (reports are already sorted by date descending)
+    const latestEveningStudy = groupedReports.eveningStudy[0];
+    const latestBoarding = groupedReports.boarding[0];
+    
+    // For meals, get the most recent report of any meal type
+    const allMealReports = [
+      ...groupedReports.meals.breakfast,
+      ...groupedReports.meals.lunch,
+      ...groupedReports.meals.dinner,
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const latestMeal = allMealReports[0];
+
+    return {
+      eveningStudy: latestEveningStudy 
+        ? { total: latestEveningStudy.totalStudents, present: latestEveningStudy.presentCount, absent: latestEveningStudy.absentCount }
+        : { total: 0, present: 0, absent: 0 },
+      boarding: latestBoarding
+        ? { total: latestBoarding.totalStudents, present: latestBoarding.presentCount, absent: latestBoarding.absentCount }
+        : { total: 0, present: 0, absent: 0 },
+      meals: latestMeal
+        ? { total: latestMeal.totalStudents, present: latestMeal.presentCount, absent: latestMeal.absentCount }
+        : { total: 0, present: 0, absent: 0 },
     };
-
-    monthReports.forEach((report) => {
-      if (report.type === 'evening_study') {
-        stats.eveningStudy.total += report.totalStudents;
-        stats.eveningStudy.present += report.presentCount;
-        stats.eveningStudy.absent += report.absentCount;
-      } else if (report.type === 'boarding') {
-        stats.boarding.total += report.totalStudents;
-        stats.boarding.present += report.presentCount;
-        stats.boarding.absent += report.absentCount;
-      } else if (report.type === 'meal') {
-        stats.meals.total += report.totalStudents;
-        stats.meals.present += report.presentCount;
-        stats.meals.absent += report.absentCount;
-      }
-    });
-
-    return stats;
-  }, [monthReports]);
+  }, [groupedReports]);
 
   // Calculate meal group stats for a report
   const getMealGroupStats = (report: typeof monthReports[0]) => {
