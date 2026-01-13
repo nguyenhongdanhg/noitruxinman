@@ -71,6 +71,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_view: boolean
+          created_at: string
+          feature: Database["public"]["Enums"]["app_feature"]
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          feature: Database["public"]["Enums"]["app_feature"]
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          feature?: Database["public"]["Enums"]["app_feature"]
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -96,6 +132,14 @@ export type Database = {
     Functions: {
       get_email_by_login: { Args: { login_input: string }; Returns: string }
       get_teacher_class: { Args: { _user_id: string }; Returns: string }
+      has_permission: {
+        Args: {
+          _action?: string
+          _feature: Database["public"]["Enums"]["app_feature"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -109,6 +153,15 @@ export type Database = {
       }
     }
     Enums: {
+      app_feature:
+        | "dashboard"
+        | "students"
+        | "evening_study"
+        | "boarding"
+        | "meals"
+        | "statistics"
+        | "user_management"
+        | "settings"
       app_role: "admin" | "teacher" | "class_teacher" | "accountant" | "kitchen"
     }
     CompositeTypes: {
@@ -237,6 +290,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_feature: [
+        "dashboard",
+        "students",
+        "evening_study",
+        "boarding",
+        "meals",
+        "statistics",
+        "user_management",
+        "settings",
+      ],
       app_role: ["admin", "teacher", "class_teacher", "accountant", "kitchen"],
     },
   },
