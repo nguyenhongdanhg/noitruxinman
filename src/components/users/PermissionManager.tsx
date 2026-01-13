@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { 
   LayoutDashboard, 
   Users, 
@@ -20,22 +18,26 @@ import {
   Eye,
   Plus,
   Pencil,
-  Trash2
+  Trash2,
+  Shield
 } from 'lucide-react';
 
-type AppFeature = 'dashboard' | 'students' | 'evening_study' | 'boarding' | 'meals' | 'statistics' | 'user_management' | 'settings';
+interface AppFeature {
+  id: string;
+  code: string;
+  label: string;
+  description: string | null;
+  icon_name: string | null;
+  display_order: number;
+  is_active: boolean;
+}
 
 interface Permission {
-  feature: AppFeature;
+  feature: string;
   can_view: boolean;
   can_create: boolean;
   can_edit: boolean;
   can_delete: boolean;
-}
-
-interface UserPermissions {
-  user_id: string;
-  permissions: Permission[];
 }
 
 interface PermissionManagerProps {
@@ -44,111 +46,77 @@ interface PermissionManagerProps {
   onClose: () => void;
 }
 
-const features: { id: AppFeature; label: string; icon: React.ReactNode; description: string }[] = [
-  { 
-    id: 'dashboard', 
-    label: 'Tổng quan', 
-    icon: <LayoutDashboard className="h-4 w-4" />,
-    description: 'Xem tổng quan hệ thống'
-  },
-  { 
-    id: 'students', 
-    label: 'Quản lý học sinh', 
-    icon: <Users className="h-4 w-4" />,
-    description: 'Quản lý danh sách học sinh theo lớp'
-  },
-  { 
-    id: 'evening_study', 
-    label: 'Điểm danh tự học', 
-    icon: <BookOpen className="h-4 w-4" />,
-    description: 'Điểm danh buổi tự học tối'
-  },
-  { 
-    id: 'boarding', 
-    label: 'Điểm danh nội trú', 
-    icon: <Home className="h-4 w-4" />,
-    description: 'Điểm danh học sinh nội trú'
-  },
-  { 
-    id: 'meals', 
-    label: 'Báo cáo bữa ăn', 
-    icon: <UtensilsCrossed className="h-4 w-4" />,
-    description: 'Quản lý và báo cáo bữa ăn'
-  },
-  { 
-    id: 'statistics', 
-    label: 'Thống kê', 
-    icon: <BarChart3 className="h-4 w-4" />,
-    description: 'Xem báo cáo thống kê'
-  },
-  { 
-    id: 'user_management', 
-    label: 'Quản lý tài khoản', 
-    icon: <UserCog className="h-4 w-4" />,
-    description: 'Quản lý người dùng và phân quyền'
-  },
-  { 
-    id: 'settings', 
-    label: 'Cài đặt', 
-    icon: <Settings className="h-4 w-4" />,
-    description: 'Cấu hình hệ thống'
-  },
-];
+const iconMap: Record<string, React.ReactNode> = {
+  LayoutDashboard: <LayoutDashboard className="h-4 w-4" />,
+  Users: <Users className="h-4 w-4" />,
+  BookOpen: <BookOpen className="h-4 w-4" />,
+  Home: <Home className="h-4 w-4" />,
+  UtensilsCrossed: <UtensilsCrossed className="h-4 w-4" />,
+  BarChart3: <BarChart3 className="h-4 w-4" />,
+  UserCog: <UserCog className="h-4 w-4" />,
+  Settings: <Settings className="h-4 w-4" />,
+  Shield: <Shield className="h-4 w-4" />,
+};
 
-const defaultPermissions: Permission[] = features.map(f => ({
-  feature: f.id,
-  can_view: false,
-  can_create: false,
-  can_edit: false,
-  can_delete: false
-}));
+const getIcon = (iconName: string | null) => {
+  return iconName && iconMap[iconName] ? iconMap[iconName] : <Settings className="h-4 w-4" />;
+};
 
 export function PermissionManager({ userId, userName, onClose }: PermissionManagerProps) {
   const { toast } = useToast();
-  const [permissions, setPermissions] = useState<Permission[]>(defaultPermissions);
+  const [features, setFeatures] = useState<AppFeature[]>([]);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchPermissions();
+    fetchData();
   }, [userId]);
 
-  const fetchPermissions = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch active features from database
+      const { data: featuresData, error: featuresError } = await supabase
+        .from('app_features')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (featuresError) throw featuresError;
+      setFeatures(featuresData || []);
+
+      // Fetch user permissions
+      const { data: permissionsData, error: permissionsError } = await supabase
         .from('user_permissions')
         .select('*')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (permissionsError) throw permissionsError;
 
-      if (data && data.length > 0) {
-        const mergedPermissions = features.map(f => {
-          const existing = data.find(p => p.feature === f.id);
-          return existing ? {
-            feature: existing.feature as AppFeature,
-            can_view: existing.can_view,
-            can_create: existing.can_create,
-            can_edit: existing.can_edit,
-            can_delete: existing.can_delete
-          } : {
-            feature: f.id,
-            can_view: false,
-            can_create: false,
-            can_edit: false,
-            can_delete: false
-          };
-        });
-        setPermissions(mergedPermissions);
-      } else {
-        setPermissions(defaultPermissions);
-      }
+      // Merge features with permissions
+      const mergedPermissions: Permission[] = (featuresData || []).map(f => {
+        const existing = permissionsData?.find(p => p.feature === f.code);
+        return existing ? {
+          feature: f.code,
+          can_view: existing.can_view,
+          can_create: existing.can_create,
+          can_edit: existing.can_edit,
+          can_delete: existing.can_delete
+        } : {
+          feature: f.code,
+          can_view: false,
+          can_create: false,
+          can_edit: false,
+          can_delete: false
+        };
+      });
+      setPermissions(mergedPermissions);
     } catch (error) {
-      console.error('Error fetching permissions:', error);
+      console.error('Error fetching data:', error);
       toast({
         title: 'Lỗi',
-        description: 'Không thể tải quyền của người dùng',
+        description: 'Không thể tải dữ liệu phân quyền',
         variant: 'destructive'
       });
     } finally {
@@ -156,9 +124,9 @@ export function PermissionManager({ userId, userName, onClose }: PermissionManag
     }
   };
 
-  const handlePermissionChange = (feature: AppFeature, action: keyof Permission, value: boolean) => {
+  const handlePermissionChange = (featureCode: string, action: keyof Permission, value: boolean) => {
     setPermissions(prev => prev.map(p => {
-      if (p.feature === feature) {
+      if (p.feature === featureCode) {
         // If turning on any action, also turn on view
         if (action !== 'can_view' && value && !p.can_view) {
           return { ...p, [action]: value, can_view: true };
@@ -173,9 +141,9 @@ export function PermissionManager({ userId, userName, onClose }: PermissionManag
     }));
   };
 
-  const handleSelectAllForFeature = (feature: AppFeature, selectAll: boolean) => {
+  const handleSelectAllForFeature = (featureCode: string, selectAll: boolean) => {
     setPermissions(prev => prev.map(p => {
-      if (p.feature === feature) {
+      if (p.feature === featureCode) {
         return {
           ...p,
           can_view: selectAll,
@@ -246,8 +214,8 @@ export function PermissionManager({ userId, userName, onClose }: PermissionManag
     }
   };
 
-  const getFeatureInfo = (featureId: AppFeature) => {
-    return features.find(f => f.id === featureId);
+  const getFeatureInfo = (featureCode: string) => {
+    return features.find(f => f.code === featureCode);
   };
 
   const hasAnyPermission = (permission: Permission) => {
@@ -316,66 +284,74 @@ export function PermissionManager({ userId, userName, onClose }: PermissionManag
             </TableRow>
           </TableHeader>
           <TableBody>
-            {permissions.map((permission) => {
-              const featureInfo = getFeatureInfo(permission.feature);
-              const allChecked = hasAllPermissions(permission);
-              
-              return (
-                <TableRow key={permission.feature} className={hasAnyPermission(permission) ? 'bg-primary/5' : ''}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                        {featureInfo?.icon}
+            {permissions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  Chưa có tính năng nào được cấu hình
+                </TableCell>
+              </TableRow>
+            ) : (
+              permissions.map((permission) => {
+                const featureInfo = getFeatureInfo(permission.feature);
+                const allChecked = hasAllPermissions(permission);
+                
+                return (
+                  <TableRow key={permission.feature} className={hasAnyPermission(permission) ? 'bg-primary/5' : ''}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
+                          {getIcon(featureInfo?.icon_name || null)}
+                        </div>
+                        <div>
+                          <div className="font-medium">{featureInfo?.label || permission.feature}</div>
+                          <div className="text-xs text-muted-foreground">{featureInfo?.description || ''}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium">{featureInfo?.label}</div>
-                        <div className="text-xs text-muted-foreground">{featureInfo?.description}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={permission.can_view}
-                      onCheckedChange={(checked) => 
-                        handlePermissionChange(permission.feature, 'can_view', checked as boolean)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={permission.can_create}
-                      onCheckedChange={(checked) => 
-                        handlePermissionChange(permission.feature, 'can_create', checked as boolean)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={permission.can_edit}
-                      onCheckedChange={(checked) => 
-                        handlePermissionChange(permission.feature, 'can_edit', checked as boolean)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={permission.can_delete}
-                      onCheckedChange={(checked) => 
-                        handlePermissionChange(permission.feature, 'can_delete', checked as boolean)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={allChecked}
-                      onCheckedChange={(checked) => 
-                        handleSelectAllForFeature(permission.feature, checked as boolean)
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={permission.can_view}
+                        onCheckedChange={(checked) => 
+                          handlePermissionChange(permission.feature, 'can_view', checked as boolean)
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={permission.can_create}
+                        onCheckedChange={(checked) => 
+                          handlePermissionChange(permission.feature, 'can_create', checked as boolean)
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={permission.can_edit}
+                        onCheckedChange={(checked) => 
+                          handlePermissionChange(permission.feature, 'can_edit', checked as boolean)
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={permission.can_delete}
+                        onCheckedChange={(checked) => 
+                          handlePermissionChange(permission.feature, 'can_delete', checked as boolean)
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={allChecked}
+                        onCheckedChange={(checked) => 
+                          handleSelectAllForFeature(permission.feature, checked as boolean)
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>
