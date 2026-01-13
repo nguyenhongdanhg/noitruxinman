@@ -18,8 +18,9 @@ interface AuthContextType {
   profile: Profile | null;
   roles: AppRole[];
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, username?: string, phone?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInByLogin: (loginIdentifier: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isClassTeacher: (classId: string) => boolean;
@@ -109,8 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, fullName: string, username?: string, phone?: string) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -120,12 +121,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     });
+    
+    // Update profile with username and phone after signup
+    if (!error && data.user) {
+      const updates: { username?: string; phone?: string } = {};
+      if (username) updates.username = username;
+      if (phone) updates.phone = phone;
+      
+      if (Object.keys(updates).length > 0) {
+        await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', data.user.id);
+      }
+    }
+    
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
+      password
+    });
+    return { error };
+  };
+
+  const signInByLogin = async (loginIdentifier: string, password: string) => {
+    // First, look up the email by username or phone
+    const { data: emailData, error: lookupError } = await supabase
+      .rpc('get_email_by_login', { login_input: loginIdentifier });
+    
+    if (lookupError || !emailData) {
+      return { error: new Error('User not found') };
+    }
+    
+    // Now sign in with the email
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailData,
       password
     });
     return { error };
@@ -172,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signUp,
         signIn,
+        signInByLogin,
         signOut,
         hasRole,
         isClassTeacher,

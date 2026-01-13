@@ -7,21 +7,23 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { School, Loader2 } from 'lucide-react';
+import { School, Loader2, User, Phone } from 'lucide-react';
 
 export default function Auth() {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signInByLogin, signUp } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
+  // Login form state - now uses username/phone instead of email
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
+  const [registerUsername, setRegisterUsername] = useState('');
+  const [registerPhone, setRegisterPhone] = useState('');
 
   if (loading) {
     return (
@@ -39,13 +41,15 @@ export default function Auth() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const { error } = await signIn(loginEmail, loginPassword);
+    const { error } = await signInByLogin(loginIdentifier, loginPassword);
     
     if (error) {
       toast({
         title: 'Lỗi đăng nhập',
         description: error.message === 'Invalid login credentials' 
-          ? 'Email hoặc mật khẩu không đúng' 
+          ? 'Tên đăng nhập/SĐT hoặc mật khẩu không đúng' 
+          : error.message === 'User not found'
+          ? 'Không tìm thấy tài khoản với thông tin này'
           : error.message,
         variant: 'destructive'
       });
@@ -73,7 +77,17 @@ export default function Auth() {
       return;
     }
 
-    const { error } = await signUp(registerEmail, registerPassword, registerName);
+    if (!registerUsername && !registerPhone) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng nhập tên đăng nhập hoặc số điện thoại',
+        variant: 'destructive'
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const { error } = await signUp(registerEmail, registerPassword, registerName, registerUsername, registerPhone);
     
     if (error) {
       toast({
@@ -117,15 +131,19 @@ export default function Auth() {
             <TabsContent value="login" className="mt-4">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="teacher@school.edu.vn"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="login-identifier">Tên đăng nhập / Số điện thoại</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="login-identifier"
+                      type="text"
+                      placeholder="Nhập tên đăng nhập hoặc SĐT"
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Mật khẩu</Label>
@@ -163,6 +181,34 @@ export default function Auth() {
                     onChange={(e) => setRegisterName(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-username">Tên đăng nhập</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="register-username"
+                      type="text"
+                      placeholder="nguyenvana"
+                      value={registerUsername}
+                      onChange={(e) => setRegisterUsername(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-phone">Số điện thoại</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="register-phone"
+                      type="tel"
+                      placeholder="0912345678"
+                      value={registerPhone}
+                      onChange={(e) => setRegisterPhone(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
