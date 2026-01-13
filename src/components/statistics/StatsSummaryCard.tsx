@@ -7,6 +7,8 @@ import { useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
 import { useApp } from '@/contexts/AppContext';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface StatsSummaryCardProps {
   icon: LucideIcon;
@@ -33,6 +35,7 @@ interface StatsSummaryCardProps {
   classStats?: Record<string, { total: number; absent: number }>;
   roomStats?: Record<string, { total: number; absent: number; students: Array<{ name: string; classId?: string; className?: string; permission?: 'P' | 'KP' }> }>;
   getClassName?: (classId: string) => string;
+  reporterName?: string;
 }
 
 export function StatsSummaryCard({
@@ -52,11 +55,24 @@ export function StatsSummaryCard({
   classStats,
   roomStats,
   getClassName,
+  reporterName,
 }: StatsSummaryCardProps) {
   const { toast } = useToast();
-  const { schoolInfo } = useApp();
+  const { schoolInfo, currentUser } = useApp();
   const reportRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  const currentDateTime = format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi });
+  const reporter = reporterName || currentUser.name;
+
+  const getReportTitle = () => {
+    switch (type) {
+      case 'study': return 'BÁO CÁO ĐIỂM DANH GIỜ TỰ HỌC';
+      case 'boarding': return 'BÁO CÁO ĐIỂM DANH NỘI TRÚ';
+      case 'meal': return `BÁO CÁO ĐIỂM DANH BỮA ĂN - ${title.toUpperCase()}`;
+      default: return 'BÁO CÁO ĐIỂM DANH';
+    }
+  };
 
   const exportAsImage = async () => {
     if (!reportRef.current) return;
@@ -90,8 +106,10 @@ export function StatsSummaryCard({
   };
 
   const shareToZalo = async () => {
-    let message = `📋 ${title.toUpperCase()}\n`;
-    message += `📅 ${date}\n`;
+    let message = `📋 ${getReportTitle()}\n`;
+    message += `📅 Ngày: ${date}\n`;
+    message += `⏰ Thời gian báo cáo: ${currentDateTime}\n`;
+    message += `👤 Người báo cáo: ${reporter}\n\n`;
     message += `📊 Sỹ số: ${present}/${total}\n`;
     message += `❌ Vắng: ${absent} học sinh\n`;
     
@@ -100,37 +118,13 @@ export function StatsSummaryCard({
       absentList.forEach((s, i) => {
         const perm = s.permission === 'P' ? '(P)' : '(KP)';
         const room = s.room ? ` - P.${s.room}` : '';
-        message += `${i + 1}. ${s.name} - ${s.className}${room} ${perm}\n`;
+        const reason = s.reason ? ` - ${s.reason}` : '';
+        message += `${i + 1}. ${s.name} - ${s.className}${room} ${perm}${reason}\n`;
       });
     }
     
     window.open(`https://zalo.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
-
-  // Group absent students by class for study type
-  const getAbsentByClass = () => {
-    const grouped: Record<string, typeof absentList> = {};
-    absentList.forEach((a) => {
-      const classKey = a.className || a.classId || 'Unknown';
-      if (!grouped[classKey]) grouped[classKey] = [];
-      grouped[classKey].push(a);
-    });
-    return grouped;
-  };
-
-  // Group absent students by room for boarding type
-  const getAbsentByRoom = () => {
-    const grouped: Record<string, typeof absentList> = {};
-    absentList.forEach((a) => {
-      const roomKey = a.room || 'Chưa xếp';
-      if (!grouped[roomKey]) grouped[roomKey] = [];
-      grouped[roomKey].push(a);
-    });
-    return grouped;
-  };
-
-  const absentByClass = getAbsentByClass();
-  const absentByRoom = getAbsentByRoom();
 
   return (
     <Card className="overflow-hidden">
@@ -199,73 +193,39 @@ export function StatsSummaryCard({
         {/* Expanded Content */}
         {isExpanded && absent > 0 && (
           <div className="mt-3 pt-3 border-t space-y-3">
-            {/* Meal Group Stats for meal type */}
-            {type === 'meal' && mealGroupStats && (
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(mealGroupStats).map(([group, stats]) => (
-                  <div
-                    key={group}
-                    className={cn(
-                      "px-2 py-1 rounded-md text-xs font-medium",
-                      stats.absent > 0 
-                        ? "bg-destructive/10 text-destructive border border-destructive/30" 
-                        : "bg-success/10 text-success border border-success/30"
-                    )}
-                  >
-                    {group}: {stats.total - stats.absent}/{stats.total}
-                    {stats.absent > 0 && ` (vắng ${stats.absent})`}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Class Stats */}
-            {classStats && type !== 'boarding' && (
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(classStats).map(([classId, stats]) => (
-                  <div
-                    key={classId}
-                    className={cn(
-                      "px-2 py-1 rounded-md text-xs font-medium",
-                      stats.absent > 0 
-                        ? "bg-destructive/10 text-destructive border border-destructive/30" 
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {getClassName ? getClassName(classId) : classId}: {stats.total - stats.absent}/{stats.total}
-                    {stats.absent > 0 && ` (vắng ${stats.absent})`}
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {/* Absent Students List - Study Type (by class) */}
+            {/* Absent Students List - Study Type (STT, Họ tên, Lớp, Có phép/Không phép, Lý do) */}
             {type === 'study' && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Danh sách vắng theo lớp:</p>
+                <p className="text-xs font-medium text-muted-foreground">Danh sách học sinh vắng:</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-8">STT</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lớp</th>
-                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">SL</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Tên vắng (P/KP)</th>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-12">STT</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground min-w-[140px]">Họ tên</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-20">Lớp</th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground w-24">Phép</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lý do</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(absentByClass).map(([className, classStudents], idx) => (
-                        <tr key={className} className="border-b border-border/50 last:border-0">
+                      {absentList.map((student, idx) => (
+                        <tr key={idx} className="border-b border-border/50 last:border-0">
                           <td className="py-2 px-2 text-muted-foreground">{idx + 1}</td>
-                          <td className="py-2 px-2 font-medium">{className}</td>
-                          <td className="py-2 px-2 text-center">{classStudents.length}</td>
-                          <td className="py-2 px-2">
-                            {classStudents.map((s, i) => (
-                              <span key={i}>
-                                {s.name} ({s.permission || 'KP'})
-                                {i < classStudents.length - 1 ? ', ' : ''}
-                              </span>
-                            ))}
+                          <td className="py-2 px-2 font-medium">{student.name}</td>
+                          <td className="py-2 px-2">{student.className || '-'}</td>
+                          <td className="py-2 px-2 text-center">
+                            <span className={cn(
+                              "text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                              student.permission === 'P' 
+                                ? "bg-success/10 text-success" 
+                                : "bg-destructive/10 text-destructive"
+                            )}>
+                              {student.permission === 'P' ? 'Có phép' : 'K.phép'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-muted-foreground italic">
+                            {student.reason || '-'}
                           </td>
                         </tr>
                       ))}
@@ -275,49 +235,44 @@ export function StatsSummaryCard({
               </div>
             )}
 
-            {/* Absent Students List - Boarding Type (by room) */}
+            {/* Absent Students List - Boarding Type (STT, Họ tên, Lớp, Phòng ở, Có phép/Không phép, Lý do) */}
             {type === 'boarding' && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Danh sách vắng theo phòng:</p>
+                <p className="text-xs font-medium text-muted-foreground">Danh sách học sinh vắng:</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-8">STT</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lớp</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Phòng</th>
-                        <th className="text-center py-2 px-2 font-medium text-muted-foreground">SL</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Tên vắng (P/KP)</th>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-12">STT</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground min-w-[140px]">Họ tên</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-20">Lớp</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-20">Phòng ở</th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground w-24">Phép</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lý do</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(absentByRoom).map(([room, roomStudents], idx) => {
-                        // Group by class within room
-                        const byClassInRoom: Record<string, typeof roomStudents> = {};
-                        roomStudents.forEach((s) => {
-                          const classKey = s.className || s.classId || 'Unknown';
-                          if (!byClassInRoom[classKey]) byClassInRoom[classKey] = [];
-                          byClassInRoom[classKey].push(s);
-                        });
-
-                        let rowIdx = 0;
-                        return Object.entries(byClassInRoom).map(([className, classStudents]) => (
-                          <tr key={`${room}-${className}`} className="border-b border-border/50 last:border-0">
-                            <td className="py-2 px-2 text-muted-foreground">{idx + (rowIdx++) + 1}</td>
-                            <td className="py-2 px-2 font-medium">{className}</td>
-                            <td className="py-2 px-2">{room}</td>
-                            <td className="py-2 px-2 text-center">{classStudents.length}</td>
-                            <td className="py-2 px-2">
-                              {classStudents.map((s, i) => (
-                                <span key={i}>
-                                  {s.name} ({s.permission || 'KP'})
-                                  {i < classStudents.length - 1 ? ', ' : ''}
-                                </span>
-                              ))}
-                            </td>
-                          </tr>
-                        ));
-                      })}
+                      {absentList.map((student, idx) => (
+                        <tr key={idx} className="border-b border-border/50 last:border-0">
+                          <td className="py-2 px-2 text-muted-foreground">{idx + 1}</td>
+                          <td className="py-2 px-2 font-medium">{student.name}</td>
+                          <td className="py-2 px-2">{student.className || '-'}</td>
+                          <td className="py-2 px-2">{student.room || '-'}</td>
+                          <td className="py-2 px-2 text-center">
+                            <span className={cn(
+                              "text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                              student.permission === 'P' 
+                                ? "bg-success/10 text-success" 
+                                : "bg-destructive/10 text-destructive"
+                            )}>
+                              {student.permission === 'P' ? 'Có phép' : 'K.phép'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-muted-foreground italic">
+                            {student.reason || '-'}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -327,16 +282,16 @@ export function StatsSummaryCard({
             {/* Absent Students List - Meal Type */}
             {type === 'meal' && (
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Học sinh vắng:</p>
+                <p className="text-xs font-medium text-muted-foreground">Danh sách học sinh vắng:</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-8">#</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground min-w-[120px]">Họ tên</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lớp</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Mâm</th>
-                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Phép</th>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-12">STT</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground min-w-[140px]">Họ tên</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-20">Lớp</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground w-16">Mâm</th>
+                        <th className="text-center py-2 px-2 font-medium text-muted-foreground w-24">Phép</th>
                         <th className="text-left py-2 px-2 font-medium text-muted-foreground">Lý do</th>
                       </tr>
                     </thead>
@@ -347,19 +302,17 @@ export function StatsSummaryCard({
                           <td className="py-2 px-2 font-medium">{student.name}</td>
                           <td className="py-2 px-2">{student.className || '-'}</td>
                           <td className="py-2 px-2">{student.mealGroup || '-'}</td>
-                          <td className="py-2 px-2">
-                            {student.permission ? (
-                              <span className={cn(
-                                "text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
-                                student.permission === 'P' 
-                                  ? "bg-success/10 text-success" 
-                                  : "bg-destructive/10 text-destructive"
-                              )}>
-                                {student.permission === 'P' ? 'Có phép' : 'K.phép'}
-                              </span>
-                            ) : '-'}
+                          <td className="py-2 px-2 text-center">
+                            <span className={cn(
+                              "text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                              student.permission === 'P' 
+                                ? "bg-success/10 text-success" 
+                                : "bg-destructive/10 text-destructive"
+                            )}>
+                              {student.permission === 'P' ? 'Có phép' : 'K.phép'}
+                            </span>
                           </td>
-                          <td className="py-2 px-2 text-muted-foreground italic max-w-[150px] truncate">
+                          <td className="py-2 px-2 text-muted-foreground italic">
                             {student.reason || '-'}
                           </td>
                         </tr>
@@ -372,59 +325,63 @@ export function StatsSummaryCard({
           </div>
         )}
 
-        {/* Hidden report for image export */}
+        {/* Hidden report for image export - IMPROVED LAYOUT */}
         <div className="hidden">
-          <div ref={reportRef} className="bg-white p-6" style={{ width: '800px' }}>
+          <div ref={reportRef} className="bg-white p-6" style={{ width: '800px', fontFamily: 'Arial, sans-serif' }}>
             {/* Header */}
-            <div className="text-center mb-4 pb-4 border-b border-gray-200">
-              <h2 className="text-sm text-gray-600">{schoolInfo?.name || 'Trường PTDTNT THCS&THPT Xín Mần'}</h2>
-              <h1 className="text-lg font-bold text-blue-600 mt-2">{title.toUpperCase()}</h1>
-              <p className="text-sm text-gray-500 mt-1">{date}</p>
+            <div className="text-center mb-6 pb-4 border-b-2 border-blue-600">
+              <p className="text-sm text-gray-600 mb-1">{schoolInfo?.name || 'TRƯỜNG PTDTNT THCS&THPT XÍN MẦN'}</p>
+              <h1 className="text-xl font-bold text-blue-700 mb-2">{getReportTitle()}</h1>
+              <p className="text-sm text-gray-700">Ngày: {date}</p>
             </div>
 
             {/* Stats summary */}
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-800">{total}</p>
-                <p className="text-xs text-gray-500">Tổng số</p>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-3xl font-bold text-blue-700">{total}</p>
+                <p className="text-sm text-gray-600 mt-1">Tổng số</p>
               </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{present}</p>
-                <p className="text-xs text-gray-500">Có mặt</p>
+              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-3xl font-bold text-green-600">{present}</p>
+                <p className="text-sm text-gray-600 mt-1">Có mặt</p>
               </div>
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <p className="text-2xl font-bold text-red-600">{absent}</p>
-                <p className="text-xs text-gray-500">Vắng</p>
+              <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+                <p className="text-3xl font-bold text-red-600">{absent}</p>
+                <p className="text-sm text-gray-600 mt-1">Vắng</p>
               </div>
             </div>
 
-            {/* Absent table - Study type (by class) */}
+            {/* Sỹ số display */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-base"><strong>Sỹ số:</strong> {present}/{total} (Vắng: {absent})</p>
+            </div>
+
+            {/* Absent table - Study type */}
             {type === 'study' && absent > 0 && (
               <div className="mt-4">
-                <h3 className="font-semibold mb-2 text-gray-800">Danh sách vắng theo lớp</h3>
-                <table className="w-full text-sm border-collapse border border-gray-300">
+                <h3 className="font-bold mb-3 text-gray-800 text-base">DANH SÁCH HỌC SINH VẮNG</h3>
+                <table className="w-full text-sm border-collapse border border-gray-400">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-300 p-2 text-left w-12">STT</th>
-                      <th className="border border-gray-300 p-2 text-left w-20">Lớp</th>
-                      <th className="border border-gray-300 p-2 text-center w-16">SL</th>
-                      <th className="border border-gray-300 p-2 text-left">Tên vắng (P/KP)</th>
+                    <tr className="bg-blue-100">
+                      <th className="border border-gray-400 p-2 text-center w-12">STT</th>
+                      <th className="border border-gray-400 p-2 text-left">Họ và tên</th>
+                      <th className="border border-gray-400 p-2 text-center w-20">Lớp</th>
+                      <th className="border border-gray-400 p-2 text-center w-24">Phép</th>
+                      <th className="border border-gray-400 p-2 text-left">Lý do</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(absentByClass).map(([className, classStudents], idx) => (
-                      <tr key={className}>
-                        <td className="border border-gray-300 p-2 text-center">{idx + 1}</td>
-                        <td className="border border-gray-300 p-2">{className}</td>
-                        <td className="border border-gray-300 p-2 text-center">{classStudents.length}</td>
-                        <td className="border border-gray-300 p-2">
-                          {classStudents.map((s, i) => (
-                            <span key={i}>
-                              {s.name} ({s.permission || 'KP'})
-                              {i < classStudents.length - 1 ? ', ' : ''}
-                            </span>
-                          ))}
+                    {absentList.map((s, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border border-gray-400 p-2 text-center">{idx + 1}</td>
+                        <td className="border border-gray-400 p-2">{s.name}</td>
+                        <td className="border border-gray-400 p-2 text-center">{s.className || '-'}</td>
+                        <td className="border border-gray-400 p-2 text-center">
+                          <span className={s.permission === 'P' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                            {s.permission === 'P' ? 'Có phép' : 'Không phép'}
+                          </span>
                         </td>
+                        <td className="border border-gray-400 p-2">{s.reason || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -432,47 +389,36 @@ export function StatsSummaryCard({
               </div>
             )}
 
-            {/* Absent table - Boarding type (by room) */}
+            {/* Absent table - Boarding type */}
             {type === 'boarding' && absent > 0 && (
               <div className="mt-4">
-                <h3 className="font-semibold mb-2 text-gray-800">Danh sách vắng theo phòng</h3>
-                <table className="w-full text-sm border-collapse border border-gray-300">
+                <h3 className="font-bold mb-3 text-gray-800 text-base">DANH SÁCH HỌC SINH VẮNG</h3>
+                <table className="w-full text-sm border-collapse border border-gray-400">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-300 p-2 text-left w-12">STT</th>
-                      <th className="border border-gray-300 p-2 text-left w-20">Lớp</th>
-                      <th className="border border-gray-300 p-2 text-left w-20">Phòng</th>
-                      <th className="border border-gray-300 p-2 text-center w-16">SL</th>
-                      <th className="border border-gray-300 p-2 text-left">Tên vắng (P/KP)</th>
+                    <tr className="bg-blue-100">
+                      <th className="border border-gray-400 p-2 text-center w-12">STT</th>
+                      <th className="border border-gray-400 p-2 text-left">Họ và tên</th>
+                      <th className="border border-gray-400 p-2 text-center w-20">Lớp</th>
+                      <th className="border border-gray-400 p-2 text-center w-20">Phòng ở</th>
+                      <th className="border border-gray-400 p-2 text-center w-24">Phép</th>
+                      <th className="border border-gray-400 p-2 text-left">Lý do</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(absentByRoom).map(([room, roomStudents], idx) => {
-                      const byClassInRoom: Record<string, typeof roomStudents> = {};
-                      roomStudents.forEach((s) => {
-                        const classKey = s.className || s.classId || 'Unknown';
-                        if (!byClassInRoom[classKey]) byClassInRoom[classKey] = [];
-                        byClassInRoom[classKey].push(s);
-                      });
-
-                      let rowIdx = 0;
-                      return Object.entries(byClassInRoom).map(([className, classStudents]) => (
-                        <tr key={`${room}-${className}`}>
-                          <td className="border border-gray-300 p-2 text-center">{idx + (rowIdx++) + 1}</td>
-                          <td className="border border-gray-300 p-2">{className}</td>
-                          <td className="border border-gray-300 p-2">{room}</td>
-                          <td className="border border-gray-300 p-2 text-center">{classStudents.length}</td>
-                          <td className="border border-gray-300 p-2">
-                            {classStudents.map((s, i) => (
-                              <span key={i}>
-                                {s.name} ({s.permission || 'KP'})
-                                {i < classStudents.length - 1 ? ', ' : ''}
-                              </span>
-                            ))}
-                          </td>
-                        </tr>
-                      ));
-                    })}
+                    {absentList.map((s, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border border-gray-400 p-2 text-center">{idx + 1}</td>
+                        <td className="border border-gray-400 p-2">{s.name}</td>
+                        <td className="border border-gray-400 p-2 text-center">{s.className || '-'}</td>
+                        <td className="border border-gray-400 p-2 text-center">{s.room || '-'}</td>
+                        <td className="border border-gray-400 p-2 text-center">
+                          <span className={s.permission === 'P' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                            {s.permission === 'P' ? 'Có phép' : 'Không phép'}
+                          </span>
+                        </td>
+                        <td className="border border-gray-400 p-2">{s.reason || '-'}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -481,31 +427,47 @@ export function StatsSummaryCard({
             {/* Absent table - Meal type */}
             {type === 'meal' && absent > 0 && (
               <div className="mt-4">
-                <h3 className="font-semibold mb-2 text-gray-800">Danh sách vắng</h3>
-                <table className="w-full text-sm border-collapse border border-gray-300">
+                <h3 className="font-bold mb-3 text-gray-800 text-base">DANH SÁCH HỌC SINH VẮNG</h3>
+                <table className="w-full text-sm border-collapse border border-gray-400">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-300 p-2 text-left w-12">STT</th>
-                      <th className="border border-gray-300 p-2 text-left">Họ tên</th>
-                      <th className="border border-gray-300 p-2 text-left w-20">Lớp</th>
-                      <th className="border border-gray-300 p-2 text-center w-16">Mâm</th>
-                      <th className="border border-gray-300 p-2 text-center w-16">Phép</th>
+                    <tr className="bg-blue-100">
+                      <th className="border border-gray-400 p-2 text-center w-12">STT</th>
+                      <th className="border border-gray-400 p-2 text-left">Họ và tên</th>
+                      <th className="border border-gray-400 p-2 text-center w-20">Lớp</th>
+                      <th className="border border-gray-400 p-2 text-center w-16">Mâm</th>
+                      <th className="border border-gray-400 p-2 text-center w-24">Phép</th>
+                      <th className="border border-gray-400 p-2 text-left">Lý do</th>
                     </tr>
                   </thead>
                   <tbody>
                     {absentList.map((s, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-gray-300 p-2 text-center">{idx + 1}</td>
-                        <td className="border border-gray-300 p-2">{s.name}</td>
-                        <td className="border border-gray-300 p-2">{s.className || '-'}</td>
-                        <td className="border border-gray-300 p-2 text-center">{s.mealGroup || '-'}</td>
-                        <td className="border border-gray-300 p-2 text-center">{s.permission || 'KP'}</td>
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border border-gray-400 p-2 text-center">{idx + 1}</td>
+                        <td className="border border-gray-400 p-2">{s.name}</td>
+                        <td className="border border-gray-400 p-2 text-center">{s.className || '-'}</td>
+                        <td className="border border-gray-400 p-2 text-center">{s.mealGroup || '-'}</td>
+                        <td className="border border-gray-400 p-2 text-center">
+                          <span className={s.permission === 'P' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                            {s.permission === 'P' ? 'Có phép' : 'Không phép'}
+                          </span>
+                        </td>
+                        <td className="border border-gray-400 p-2">{s.reason || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
+
+            {/* Footer */}
+            <div className="mt-6 pt-4 border-t border-gray-300 flex justify-between text-sm text-gray-600">
+              <div>
+                <p><strong>Thời gian báo cáo:</strong> {currentDateTime}</p>
+              </div>
+              <div className="text-right">
+                <p><strong>Người báo cáo:</strong> {reporter}</p>
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>
