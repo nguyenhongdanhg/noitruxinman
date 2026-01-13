@@ -398,38 +398,6 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
           </div>
         </CardContent>
       </Card>
-              const isAbsent = absentStudentIds.has(student.id);
-              return (
-                <div
-                  key={student.id}
-                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${
-                    isAbsent
-                      ? 'bg-destructive/10 border-destructive/30'
-                      : 'bg-success/5 border-success/20'
-                  }`}
-                  onClick={() => toggleAbsent(student.id)}
-                >
-                  <Checkbox
-                    checked={isAbsent}
-                    onCheckedChange={() => toggleAbsent(student.id)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate text-sm sm:text-base">{student.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {getClassName(student.classId)} • P.{student.room} • M.{student.mealGroup}
-                    </p>
-                  </div>
-                  {isAbsent ? (
-                    <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Absent Students with Reasons */}
       {absentStudents.length > 0 && (
