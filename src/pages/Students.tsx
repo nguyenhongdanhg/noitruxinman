@@ -20,8 +20,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Student } from '@/types';
-import { UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function Students() {
   const { students, setStudents, classes } = useApp();
@@ -98,6 +109,14 @@ export default function Students() {
     }
   };
 
+  const handleDeleteAll = () => {
+    setStudents([]);
+    toast({
+      title: 'Xóa thành công',
+      description: 'Đã xóa tất cả học sinh',
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -108,10 +127,36 @@ export default function Students() {
           </h1>
           <p className="text-muted-foreground mt-1">Danh sách và thông tin học sinh nội trú</p>
         </div>
-        <Button onClick={openAddDialog} className="gap-2 gradient-primary">
-          <UserPlus className="h-4 w-4" />
-          Thêm học sinh
-        </Button>
+        <div className="flex gap-2">
+          {students.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Xóa tất cả
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận xóa tất cả học sinh?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có chắc muốn xóa tất cả {students.length} học sinh? Hành động này không thể hoàn tác.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Xóa tất cả
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <Button onClick={openAddDialog} className="gap-2 gradient-primary">
+            <UserPlus className="h-4 w-4" />
+            Thêm học sinh
+          </Button>
+        </div>
       </div>
 
       <ExcelImport />
