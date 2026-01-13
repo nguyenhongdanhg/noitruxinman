@@ -3,17 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useApp } from '@/contexts/AppContext';
-import { Settings as SettingsIcon, School, Phone, Mail, MapPin, Save, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Settings as SettingsIcon, School, Phone, Mail, MapPin, Save, RefreshCw, Lock, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Settings() {
   const { schoolInfo, students, teachers, reports, setStudents, setTeachers, setReports } = useApp();
+  const { user } = useAuth();
   const { toast } = useToast();
   
   const [schoolName, setSchoolName] = useState(schoolInfo.name);
   const [schoolAddress, setSchoolAddress] = useState(schoolInfo.address || '');
   const [schoolPhone, setSchoolPhone] = useState(schoolInfo.phone || '');
   const [schoolEmail, setSchoolEmail] = useState(schoolInfo.email || '');
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const handleSaveSettings = () => {
     // In a real app, this would save to backend
@@ -36,6 +45,69 @@ export default function Settings() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword.length < 6) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu mới phải có ít nhất 6 ký tự',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu xác nhận không khớp',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    // First verify current password by re-authenticating
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user?.email || '',
+      password: currentPassword
+    });
+
+    if (signInError) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu hiện tại không đúng',
+        variant: 'destructive'
+      });
+      setIsChangingPassword(false);
+      return;
+    }
+
+    // Update password
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      toast({
+        title: 'Lỗi',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } else {
+      toast({
+        title: 'Thành công',
+        description: 'Mật khẩu đã được thay đổi'
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+
+    setIsChangingPassword(false);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -47,6 +119,76 @@ export default function Settings() {
           Quản lý thông tin trường và cấu hình hệ thống
         </p>
       </div>
+
+      {/* Change Password */}
+      {user && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Đổi mật khẩu
+            </CardTitle>
+            <CardDescription>
+              Thay đổi mật khẩu tài khoản của bạn
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Mật khẩu hiện tại
+                </label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu hiện tại"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Mật khẩu mới
+                </label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Ít nhất 6 ký tự"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Xác nhận mật khẩu mới
+                </label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <Button type="submit" className="gap-2" disabled={isChangingPassword}>
+                {isChangingPassword ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4" />
+                    Đổi mật khẩu
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* School Information */}
       <Card>
