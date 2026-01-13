@@ -49,7 +49,10 @@ export function ReportImageExport({ report, type }: ReportImageExportProps) {
 
   const getTitle = () => {
     if (type === 'study') return 'BÁO CÁO ĐIỂM DANH GIỜ TỰ HỌC';
-    if (type === 'boarding') return `BÁO CÁO ĐIỂM DANH ${getSessionLabel(report.session).toUpperCase()}`;
+    if (type === 'boarding') {
+      const sessionLabel = getSessionLabel(report.session);
+      return `BÁO CÁO ĐIỂM DANH NỘI TRÚ (${sessionLabel})`;
+    }
     if (type === 'meal') return `BÁO CÁO ĐIỂM DANH ${getMealLabel(report.mealType).toUpperCase()}`;
     return 'BÁO CÁO ĐIỂM DANH';
   };

@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AttendanceForm } from '@/components/attendance/AttendanceForm';
+import { MealAttendanceForm } from '@/components/attendance/MealAttendanceForm';
 import { ReportHistory } from '@/components/reports/ReportHistory';
 import { Card, CardContent } from '@/components/ui/card';
 import { Utensils, FileText, Clock, AlertCircle, Shield } from 'lucide-react';
@@ -116,9 +116,7 @@ export default function Meals() {
         </TabsList>
 
         <TabsContent value="attendance" className="mt-4 sm:mt-6">
-          <AttendanceForm 
-            type="meal" 
-            title="Đăng ký bữa ăn" 
+          <MealAttendanceForm 
             filterClassId={isAdmin ? undefined : teacherClassId || undefined}
           />
         </TabsContent>
