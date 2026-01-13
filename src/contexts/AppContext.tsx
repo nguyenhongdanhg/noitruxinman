@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Student, Teacher, AttendanceRecord, Report } from '@/types';
-import { mockStudents, mockTeachers, classes, schoolInfo } from '@/data/mockData';
+import { mockTeachers, classes, schoolInfo } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStudents } from '@/hooks/useStudents';
 
 interface AppContextType {
   students: Student[];
@@ -15,17 +16,25 @@ interface AppContextType {
   currentUser: { id: string; name: string };
   schoolInfo: typeof schoolInfo;
   classes: typeof classes;
+  isLoadingStudents: boolean;
+  refetchStudents: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
+  const { students: dbStudents, isLoading: isLoadingStudents, refetch: refetchStudents } = useStudents();
   
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem('students');
-    return saved ? JSON.parse(saved) : mockStudents;
-  });
+  // Students now come from database via useStudents hook
+  const [students, setStudents] = useState<Student[]>([]);
+  
+  // Sync students from database
+  useEffect(() => {
+    if (dbStudents && dbStudents.length > 0) {
+      setStudents(dbStudents);
+    }
+  }, [dbStudents]);
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem('teachers');
@@ -48,9 +57,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     name: profile?.full_name || 'Nguyễn Hồng Dân'
   };
 
-  useEffect(() => {
-    localStorage.setItem('students', JSON.stringify(students));
-  }, [students]);
+  // No longer save students to localStorage - they come from database
 
   useEffect(() => {
     localStorage.setItem('teachers', JSON.stringify(teachers));
@@ -78,6 +85,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         currentUser,
         schoolInfo,
         classes,
+        isLoadingStudents,
+        refetchStudents,
       }}
     >
       {children}
