@@ -338,12 +338,16 @@ export default function Statistics() {
                 total={report.totalStudents}
                 present={report.presentCount}
                 absent={report.absentCount}
-                absentList={report.absentStudents.map(a => ({
-                  name: a.name,
-                  className: getClassName(a.classId),
-                  permission: a.permission,
-                  reason: a.reason,
-                }))}
+                absentList={report.absentStudents.map(a => {
+                  const student = students.find(s => s.id === a.studentId);
+                  return {
+                    name: a.name,
+                    className: getClassName(a.classId),
+                    room: student?.room || a.room,
+                    permission: a.permission,
+                    reason: a.reason,
+                  };
+                })}
                 isExpanded={expandedCards[report.id] || false}
                 onToggle={() => toggleCard(report.id)}
                 type="boarding"

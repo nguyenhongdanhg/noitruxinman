@@ -22,6 +22,7 @@ export type Database = {
           id: string
           phone: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
           class_id?: string | null
@@ -30,6 +31,7 @@ export type Database = {
           id: string
           phone?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
           class_id?: string | null
@@ -38,6 +40,7 @@ export type Database = {
           id?: string
           phone?: string | null
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -64,6 +67,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_email_by_login: { Args: { login_input: string }; Returns: string }
       get_teacher_class: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
