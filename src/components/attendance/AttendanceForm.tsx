@@ -30,13 +30,22 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
   const { toast } = useToast();
   
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [selectedClass, setSelectedClass] = useState<string>('all');
+  // If filterClassId is set, default to that class
+  const [selectedClass, setSelectedClass] = useState<string>(filterClassId || 'all');
   const [session, setSession] = useState<string>('');
   const [mealType, setMealType] = useState<string>('');
   const [presentStudents, setPresentStudents] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [permissions, setPermissions] = useState<Record<string, 'P' | 'KP'>>({});
   const [notes, setNotes] = useState('');
+
+  // Classes available for selection (filtered for class teachers)
+  const availableClasses = useMemo(() => {
+    if (filterClassId) {
+      return classes.filter(c => c.id === filterClassId);
+    }
+    return classes;
+  }, [classes, filterClassId]);
 
   const filteredStudents = useMemo(() => {
     let result = students;
@@ -233,13 +242,17 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
 
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Lớp</label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
+              <Select 
+                value={selectedClass} 
+                onValueChange={setSelectedClass}
+                disabled={!!filterClassId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn lớp" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả lớp</SelectItem>
-                  {classes.map((c) => (
+                  {!filterClassId && <SelectItem value="all">Tất cả lớp</SelectItem>}
+                  {availableClasses.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       Lớp {c.name}
                     </SelectItem>

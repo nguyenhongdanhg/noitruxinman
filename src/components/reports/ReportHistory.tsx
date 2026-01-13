@@ -38,9 +38,10 @@ import {
 interface ReportHistoryProps {
   type: 'evening_study' | 'boarding' | 'meal';
   title: string;
+  filterClassId?: string;
 }
 
-export function ReportHistory({ type, title }: ReportHistoryProps) {
+export function ReportHistory({ type, title, filterClassId }: ReportHistoryProps) {
   const { reports, classes, students, setReports } = useApp();
   const { toast } = useToast();
   const [dateFilter, setDateFilter] = useState<'day' | 'week' | 'month'>('day');
@@ -48,6 +49,18 @@ export function ReportHistory({ type, title }: ReportHistoryProps) {
 
   const filteredReports = reports.filter((report) => {
     if (report.type !== type) return false;
+
+    // Filter by class for class teachers
+    if (filterClassId) {
+      // Check if report contains students from this class
+      const hasClassStudents = report.absentStudents.some(s => s.classId === filterClassId);
+      // Or check if report was made for this specific class (via classId if stored)
+      // Also include reports where all absent students are from this class
+      const allStudentsFromClass = report.absentStudents.length === 0 || 
+        report.absentStudents.every(s => s.classId === filterClassId);
+      
+      if (!hasClassStudents && !allStudentsFromClass) return false;
+    }
 
     const reportDate = new Date(report.date);
     const filterDate = new Date(selectedDate);

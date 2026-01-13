@@ -124,7 +124,11 @@ export default function Meals() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-4 sm:mt-6">
-          <ReportHistory type="meal" title="Báo cáo bữa ăn" />
+          <ReportHistory 
+            type="meal" 
+            title="Báo cáo bữa ăn" 
+            filterClassId={isAdmin ? undefined : teacherClassId || undefined}
+          />
         </TabsContent>
       </Tabs>
     </div>
