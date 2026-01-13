@@ -11,13 +11,14 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Download, Calendar, Book, Moon, Utensils, Users, FileSpreadsheet } from 'lucide-react';
+import { BarChart3, Download, Calendar, Book, Moon, Utensils, Users, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, parseISO, eachDayOfInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { StatsSummaryCard } from '@/components/statistics/StatsSummaryCard';
 import * as XLSX from 'xlsx';
 import { Report } from '@/types';
+import { exportMealExcelSchoolFormatted, exportMealExcelClassFormatted } from '@/utils/excelExport';
 
 export default function Statistics() {
   const { reports, students, classes, currentUser, schoolInfo } = useApp();
@@ -29,6 +30,7 @@ export default function Statistics() {
   const [mealExportClass, setMealExportClass] = useState<string>('all');
   const [summaryFilterType, setSummaryFilterType] = useState<'day' | 'week' | 'month'>('day');
   const [summaryFilterDate, setSummaryFilterDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [isExporting, setIsExporting] = useState(false);
 
   const monthStart = startOfMonth(new Date(selectedMonth + '-01'));
   const monthEnd = endOfMonth(monthStart);
@@ -230,372 +232,123 @@ export default function Statistics() {
     }
   };
 
-  // Export detailed meal Excel - whole school
-  const exportMealExcelSchool = () => {
-    let dateRange: { start: Date; end: Date };
-    const baseDate = parseISO(mealExportDate);
+  // Export detailed meal Excel - whole school (with formatting)
+  const exportMealExcelSchool = async () => {
+    setIsExporting(true);
+    try {
+      let dateRange: { start: Date; end: Date };
+      const baseDate = parseISO(mealExportDate);
 
-    if (mealExportType === 'day') {
-      dateRange = { start: baseDate, end: baseDate };
-    } else if (mealExportType === 'week') {
-      dateRange = { start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: endOfWeek(baseDate, { weekStartsOn: 1 }) };
-    } else {
-      dateRange = { start: startOfMonth(baseDate), end: endOfMonth(baseDate) };
+      if (mealExportType === 'day') {
+        dateRange = { start: baseDate, end: baseDate };
+      } else if (mealExportType === 'week') {
+        dateRange = { start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: endOfWeek(baseDate, { weekStartsOn: 1 }) };
+      } else {
+        dateRange = { start: startOfMonth(baseDate), end: endOfMonth(baseDate) };
+      }
+
+      const mealReports = reports.filter(r => 
+        r.type === 'meal' && 
+        isWithinInterval(parseISO(r.date), dateRange)
+      );
+
+      const blob = await exportMealExcelSchoolFormatted({
+        dateRange,
+        reports: mealReports,
+        students,
+        classes,
+        schoolInfo
+      });
+
+      // Download
+      const fileName = `thongke_buaan_${mealExportType}_${mealExportDate}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Xuất Excel thành công',
+        description: `Đã tải xuống ${fileName}`,
+      });
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast({
+        title: 'Lỗi xuất Excel',
+        description: 'Không thể xuất file Excel. Vui lòng thử lại.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const days = eachDayOfInterval(dateRange);
-    const mealReports = reports.filter(r => 
-      r.type === 'meal' && 
-      isWithinInterval(parseISO(r.date), dateRange)
-    );
-
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    
-    // Get unique meal groups
-    const mealGroups = [...new Set(students.map(s => s.mealGroup).filter(Boolean))];
-    
-    // Sort classes by grade and name for proper order (6A, 6B, 7A, 7B, ..., 12A, 12B)
-    const sortedClasses = [...classes].sort((a, b) => {
-      if (a.grade !== b.grade) return a.grade - b.grade;
-      return a.name.localeCompare(b.name);
-    });
-    
-    // Summary sheet with rows as days, columns as classes
-    const summaryData: any[][] = [
-      [`BÁO CÁO THỐNG KÊ BỮA ĂN - TOÀN TRƯỜNG`],
-      [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
-      [`Xuất lúc: ${format(new Date(), 'HH:mm dd/MM/yyyy')}`],
-      [`Chú thích: S = Sáng, T = Trưa, To = Tối`],
-      [],
-    ];
-
-    // Header row 1 - Class names (merged cells will be handled by column width)
-    const headerRow1: any[] = ['STT', 'Ngày'];
-    sortedClasses.forEach(cls => {
-      headerRow1.push(cls.name, '', ''); // 3 columns per class
-    });
-    headerRow1.push('Tổng Sáng', 'Tổng Trưa', 'Tổng Tối', 'Tổng Gạo (kg)');
-    summaryData.push(headerRow1);
-    
-    // Header row 2 - Meal types for each class
-    const headerRow2: any[] = ['', ''];
-    sortedClasses.forEach(() => {
-      headerRow2.push('S', 'T', 'To');
-    });
-    headerRow2.push('', '', '', '');
-    summaryData.push(headerRow2);
-
-    // Data rows - each day is a row
-    days.forEach((day, idx) => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const dayReports = mealReports.filter(r => r.date === dayStr);
-      
-      const breakfast = dayReports.find(r => r.mealType === 'breakfast');
-      const lunch = dayReports.find(r => r.mealType === 'lunch');
-      const dinner = dayReports.find(r => r.mealType === 'dinner');
-
-      const row: any[] = [idx + 1, format(day, 'dd/MM/yyyy')];
-      
-      let totalBreakfast = 0;
-      let totalLunch = 0;
-      let totalDinner = 0;
-      
-      sortedClasses.forEach(cls => {
-        const classStudents = students.filter(s => s.classId === cls.id);
-        const classTotal = classStudents.length;
-        
-        const breakfastAbsent = breakfast?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-        const lunchAbsent = lunch?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-        const dinnerAbsent = dinner?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-        
-        const classBreakfast = breakfast ? classTotal - breakfastAbsent : 0;
-        const classLunch = lunch ? classTotal - lunchAbsent : 0;
-        const classDinner = dinner ? classTotal - dinnerAbsent : 0;
-        
-        row.push(classBreakfast, classLunch, classDinner);
-        
-        totalBreakfast += classBreakfast;
-        totalLunch += classLunch;
-        totalDinner += classDinner;
-      });
-      
-      // Add totals
-      const totalRice = ((totalLunch + totalDinner) * 0.2).toFixed(1);
-      row.push(totalBreakfast, totalLunch, totalDinner, parseFloat(totalRice));
-      
-      summaryData.push(row);
-    });
-
-    // Add summary totals row
-    summaryData.push([]);
-    const totalRow: any[] = ['', 'TỔNG CỘNG'];
-    let grandTotalBreakfast = 0;
-    let grandTotalLunch = 0;
-    let grandTotalDinner = 0;
-    
-    sortedClasses.forEach(cls => {
-      let classBreakfastTotal = 0;
-      let classLunchTotal = 0;
-      let classDinnerTotal = 0;
-      
-      days.forEach(day => {
-        const dayStr = format(day, 'yyyy-MM-dd');
-        const dayReports = mealReports.filter(r => r.date === dayStr);
-        
-        const breakfast = dayReports.find(r => r.mealType === 'breakfast');
-        const lunch = dayReports.find(r => r.mealType === 'lunch');
-        const dinner = dayReports.find(r => r.mealType === 'dinner');
-        
-        const classStudents = students.filter(s => s.classId === cls.id);
-        const classTotal = classStudents.length;
-        
-        const breakfastAbsent = breakfast?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-        const lunchAbsent = lunch?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-        const dinnerAbsent = dinner?.absentStudents.filter(a => a.classId === cls.id).length || 0;
-        
-        classBreakfastTotal += breakfast ? classTotal - breakfastAbsent : 0;
-        classLunchTotal += lunch ? classTotal - lunchAbsent : 0;
-        classDinnerTotal += dinner ? classTotal - dinnerAbsent : 0;
-      });
-      
-      totalRow.push(classBreakfastTotal, classLunchTotal, classDinnerTotal);
-      grandTotalBreakfast += classBreakfastTotal;
-      grandTotalLunch += classLunchTotal;
-      grandTotalDinner += classDinnerTotal;
-    });
-    
-    const grandTotalRice = ((grandTotalLunch + grandTotalDinner) * 0.2).toFixed(1);
-    totalRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, parseFloat(grandTotalRice));
-    summaryData.push(totalRow);
-
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    
-    // Set column widths
-    const colWidths: any[] = [
-      { wch: 5 },  // STT
-      { wch: 12 }, // Ngày
-    ];
-    sortedClasses.forEach(() => {
-      colWidths.push({ wch: 4 }, { wch: 4 }, { wch: 4 }); // S, T, To
-    });
-    colWidths.push({ wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }); // Totals
-    summarySheet['!cols'] = colWidths;
-    
-    XLSX.utils.book_append_sheet(wb, summarySheet, 'Tổng hợp');
-
-    // Detailed sheet per class
-    classes.forEach(cls => {
-      const classStudents = students.filter(s => s.classId === cls.id);
-      if (classStudents.length === 0) return;
-
-      const classData: any[][] = [
-        [`THỐNG KÊ BỮA ĂN - LỚP ${cls.name}`],
-        [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
-        [`Chú thích: 1 = Có mặt, 0 = Vắng, - = Chưa điểm danh | Định dạng: Sáng-Trưa-Tối (VD: 101 = Ăn sáng, vắng trưa, ăn tối)`],
-        [],
-      ];
-
-      // Header row - combine meals into single day column
-      const headerRow = ['STT', 'Họ và tên', 'Mâm ăn'];
-      days.forEach(day => {
-        headerRow.push(format(day, 'dd/MM'));
-      });
-      headerRow.push('Tổng Sáng', 'Tổng Trưa', 'Tổng Tối', 'Số gạo (kg)');
-      classData.push(headerRow);
-
-      // Student rows
-      classStudents.forEach((student, idx) => {
-        const row: any[] = [idx + 1, student.name, student.mealGroup];
-        let totalBreakfast = 0;
-        let totalLunch = 0;
-        let totalDinner = 0;
-        
-        days.forEach(day => {
-          const dayStr = format(day, 'yyyy-MM-dd');
-          const dayReports = mealReports.filter(r => r.date === dayStr);
-          
-          const breakfastReport = dayReports.find(r => r.mealType === 'breakfast');
-          const lunchReport = dayReports.find(r => r.mealType === 'lunch');
-          const dinnerReport = dayReports.find(r => r.mealType === 'dinner');
-          
-          // Check if any report exists for this day
-          if (!breakfastReport && !lunchReport && !dinnerReport) {
-            row.push('-');
-          } else {
-            let dayCode = '';
-            
-            // Breakfast
-            if (!breakfastReport) {
-              dayCode += '-';
-            } else {
-              const isAbsent = breakfastReport.absentStudents.some(a => a.studentId === student.id);
-              dayCode += isAbsent ? '0' : '1';
-              if (!isAbsent) totalBreakfast++;
-            }
-            
-            // Lunch
-            if (!lunchReport) {
-              dayCode += '-';
-            } else {
-              const isAbsent = lunchReport.absentStudents.some(a => a.studentId === student.id);
-              dayCode += isAbsent ? '0' : '1';
-              if (!isAbsent) totalLunch++;
-            }
-            
-            // Dinner
-            if (!dinnerReport) {
-              dayCode += '-';
-            } else {
-              const isAbsent = dinnerReport.absentStudents.some(a => a.studentId === student.id);
-              dayCode += isAbsent ? '0' : '1';
-              if (!isAbsent) totalDinner++;
-            }
-            
-            row.push(dayCode);
-          }
-        });
-        
-        // Add totals for each meal type
-        row.push(totalBreakfast, totalLunch, totalDinner);
-        // Add rice consumption: 0.2kg per lunch/dinner meal
-        const riceAmount = ((totalLunch + totalDinner) * 0.2).toFixed(1);
-        row.push(parseFloat(riceAmount));
-        classData.push(row);
-      });
-
-      const classSheet = XLSX.utils.aoa_to_sheet(classData);
-      XLSX.utils.book_append_sheet(wb, classSheet, `Lớp ${cls.name}`.substring(0, 31));
-    });
-
-    // Download
-    const fileName = `thongke_buaan_${mealExportType}_${mealExportDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-
-    toast({
-      title: 'Xuất Excel thành công',
-      description: `Đã tải xuống ${fileName}`,
-    });
   };
 
-  // Export meal Excel for specific class
-  const exportMealExcelClass = () => {
+  // Export meal Excel for specific class (with formatting)
+  const exportMealExcelClass = async () => {
     if (mealExportClass === 'all') {
       exportMealExcelSchool();
       return;
     }
 
-    let dateRange: { start: Date; end: Date };
-    const baseDate = parseISO(mealExportDate);
+    setIsExporting(true);
+    try {
+      let dateRange: { start: Date; end: Date };
+      const baseDate = parseISO(mealExportDate);
 
-    if (mealExportType === 'day') {
-      dateRange = { start: baseDate, end: baseDate };
-    } else if (mealExportType === 'week') {
-      dateRange = { start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: endOfWeek(baseDate, { weekStartsOn: 1 }) };
-    } else {
-      dateRange = { start: startOfMonth(baseDate), end: endOfMonth(baseDate) };
-    }
+      if (mealExportType === 'day') {
+        dateRange = { start: baseDate, end: baseDate };
+      } else if (mealExportType === 'week') {
+        dateRange = { start: startOfWeek(baseDate, { weekStartsOn: 1 }), end: endOfWeek(baseDate, { weekStartsOn: 1 }) };
+      } else {
+        dateRange = { start: startOfMonth(baseDate), end: endOfMonth(baseDate) };
+      }
 
-    const days = eachDayOfInterval(dateRange);
-    const mealReports = reports.filter(r => 
-      r.type === 'meal' && 
-      isWithinInterval(parseISO(r.date), dateRange)
-    );
+      const cls = classes.find(c => c.id === mealExportClass);
+      if (!cls) {
+        throw new Error('Class not found');
+      }
 
-    const cls = classes.find(c => c.id === mealExportClass);
-    const classStudents = students.filter(s => s.classId === mealExportClass);
+      const mealReports = reports.filter(r => 
+        r.type === 'meal' && 
+        isWithinInterval(parseISO(r.date), dateRange)
+      );
 
-    const wb = XLSX.utils.book_new();
-    const classData: any[][] = [
-      [`THỐNG KÊ BỮA ĂN - LỚP ${cls?.name || mealExportClass}`],
-      [`Từ ngày: ${format(dateRange.start, 'dd/MM/yyyy')} - Đến ngày: ${format(dateRange.end, 'dd/MM/yyyy')}`],
-      [`Xuất lúc: ${format(new Date(), 'HH:mm dd/MM/yyyy')}`],
-      [`Chú thích: 1 = Có mặt, 0 = Vắng, - = Chưa điểm danh | Định dạng: Sáng-Trưa-Tối (VD: 101 = Ăn sáng, vắng trưa, ăn tối)`],
-      [],
-    ];
-
-    // Header row - combine meals into single day column
-    const headerRow = ['STT', 'Họ và tên', 'Mâm ăn'];
-    days.forEach(day => {
-      headerRow.push(format(day, 'dd/MM'));
-    });
-    headerRow.push('Tổng Sáng', 'Tổng Trưa', 'Tổng Tối', 'Số gạo (kg)');
-    classData.push(headerRow);
-
-    // Student rows
-    classStudents.forEach((student, idx) => {
-      const row: any[] = [idx + 1, student.name, student.mealGroup];
-      let totalBreakfast = 0;
-      let totalLunch = 0;
-      let totalDinner = 0;
-      
-      days.forEach(day => {
-        const dayStr = format(day, 'yyyy-MM-dd');
-        const dayReports = mealReports.filter(r => r.date === dayStr);
-        
-        const breakfastReport = dayReports.find(r => r.mealType === 'breakfast');
-        const lunchReport = dayReports.find(r => r.mealType === 'lunch');
-        const dinnerReport = dayReports.find(r => r.mealType === 'dinner');
-        
-        // Check if any report exists for this day
-        if (!breakfastReport && !lunchReport && !dinnerReport) {
-          row.push('-');
-        } else {
-          let dayCode = '';
-          
-          // Breakfast
-          if (!breakfastReport) {
-            dayCode += '-';
-          } else {
-            const isAbsent = breakfastReport.absentStudents.some(a => a.studentId === student.id);
-            dayCode += isAbsent ? '0' : '1';
-            if (!isAbsent) totalBreakfast++;
-          }
-          
-          // Lunch
-          if (!lunchReport) {
-            dayCode += '-';
-          } else {
-            const isAbsent = lunchReport.absentStudents.some(a => a.studentId === student.id);
-            dayCode += isAbsent ? '0' : '1';
-            if (!isAbsent) totalLunch++;
-          }
-          
-          // Dinner
-          if (!dinnerReport) {
-            dayCode += '-';
-          } else {
-            const isAbsent = dinnerReport.absentStudents.some(a => a.studentId === student.id);
-            dayCode += isAbsent ? '0' : '1';
-            if (!isAbsent) totalDinner++;
-          }
-          
-          row.push(dayCode);
-        }
+      const blob = await exportMealExcelClassFormatted({
+        dateRange,
+        reports: mealReports,
+        students,
+        classInfo: cls
       });
-      
-      // Add totals for each meal type
-      row.push(totalBreakfast, totalLunch, totalDinner);
-      // Add rice consumption: 0.2kg per lunch/dinner meal
-      const riceAmount = ((totalLunch + totalDinner) * 0.2).toFixed(1);
-      row.push(parseFloat(riceAmount));
-      classData.push(row);
-    });
 
-    // Add legend
-    classData.push([]);
-    classData.push(['Số gạo tính: 0.2kg × số bữa trưa/tối có mặt']);
+      // Download
+      const fileName = `thongke_buaan_lop${cls.name}_${mealExportType}_${mealExportDate}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-    const classSheet = XLSX.utils.aoa_to_sheet(classData);
-    XLSX.utils.book_append_sheet(wb, classSheet, 'Chi tiết');
-
-    const fileName = `thongke_buaan_lop${cls?.name || mealExportClass}_${mealExportType}_${mealExportDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-
-    toast({
-      title: 'Xuất Excel thành công',
-      description: `Đã tải xuống ${fileName}`,
-    });
+      toast({
+        title: 'Xuất Excel thành công',
+        description: `Đã tải xuống ${fileName}`,
+      });
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast({
+        title: 'Lỗi xuất Excel',
+        description: 'Không thể xuất file Excel. Vui lòng thử lại.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const exportReport = () => {
@@ -920,9 +673,9 @@ export default function Statistics() {
                   </Select>
                 </div>
                 <div className="flex items-end">
-                  <Button onClick={exportMealExcelClass} className="w-full gap-2">
-                    <Download className="h-4 w-4" />
-                    Xuất Excel
+                  <Button onClick={exportMealExcelClass} disabled={isExporting} className="w-full gap-2">
+                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
                   </Button>
                 </div>
               </div>
