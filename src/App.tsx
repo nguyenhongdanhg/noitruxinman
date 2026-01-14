@@ -17,6 +17,7 @@ import Statistics from "./pages/Statistics";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/install" element={<Install />} />
               <Route
                 path="/"
                 element={
