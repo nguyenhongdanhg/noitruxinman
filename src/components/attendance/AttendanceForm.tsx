@@ -216,89 +216,95 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Form Header */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3 sm:pb-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Calendar className="h-5 w-5 text-primary" />
             Thông tin điểm danh
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="space-y-4 sm:space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:gap-5">
+            {/* Date Input - Full width on mobile */}
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Ngày điểm danh</label>
+              <label className="text-sm font-medium text-foreground mb-2 sm:mb-2.5 block">Ngày điểm danh</label>
               <Input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                className="h-12 sm:h-10 text-base sm:text-sm"
               />
             </div>
 
-            {type === 'boarding' && (
+            {/* Session/Meal + Class Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+              {type === 'boarding' && (
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 sm:mb-2.5 block">Buổi</label>
+                  <Select value={session} onValueChange={setSession}>
+                    <SelectTrigger className="h-12 sm:h-10 text-base sm:text-sm">
+                      <SelectValue placeholder="Chọn buổi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning_exercise" className="py-3 sm:py-2">Thể dục sáng</SelectItem>
+                      <SelectItem value="noon_nap" className="py-3 sm:py-2">Ngủ trưa</SelectItem>
+                      <SelectItem value="evening_sleep" className="py-3 sm:py-2">Ngủ tối</SelectItem>
+                      <SelectItem value="random" className="py-3 sm:py-2">Đột xuất</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {type === 'meal' && (
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 sm:mb-2.5 block">Bữa ăn</label>
+                  <Select value={mealType} onValueChange={setMealType}>
+                    <SelectTrigger className="h-12 sm:h-10 text-base sm:text-sm">
+                      <SelectValue placeholder="Chọn bữa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="breakfast" className="py-3 sm:py-2">Bữa sáng</SelectItem>
+                      <SelectItem value="lunch" className="py-3 sm:py-2">Bữa trưa</SelectItem>
+                      <SelectItem value="dinner" className="py-3 sm:py-2">Bữa tối</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Buổi</label>
-                <Select value={session} onValueChange={setSession}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn buổi" />
+                <label className="text-sm font-medium text-foreground mb-2 sm:mb-2.5 block">Lớp</label>
+                <Select 
+                  value={selectedClass} 
+                  onValueChange={setSelectedClass}
+                  disabled={!!filterClassId}
+                >
+                  <SelectTrigger className="h-12 sm:h-10 text-base sm:text-sm">
+                    <SelectValue placeholder="Chọn lớp" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="morning_exercise">Thể dục sáng</SelectItem>
-                    <SelectItem value="noon_nap">Ngủ trưa</SelectItem>
-                    <SelectItem value="evening_sleep">Ngủ tối</SelectItem>
-                    <SelectItem value="random">Đột xuất</SelectItem>
+                    {!filterClassId && <SelectItem value="all" className="py-3 sm:py-2">Tất cả lớp</SelectItem>}
+                    {availableClasses.map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="py-3 sm:py-2">
+                        Lớp {c.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-
-            {type === 'meal' && (
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Bữa ăn</label>
-                <Select value={mealType} onValueChange={setMealType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn bữa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="breakfast">Bữa sáng</SelectItem>
-                    <SelectItem value="lunch">Bữa trưa</SelectItem>
-                    <SelectItem value="dinner">Bữa tối</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Lớp</label>
-              <Select 
-                value={selectedClass} 
-                onValueChange={setSelectedClass}
-                disabled={!!filterClassId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn lớp" />
-                </SelectTrigger>
-                <SelectContent>
-                  {!filterClassId && <SelectItem value="all">Tất cả lớp</SelectItem>}
-                  {availableClasses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      Lớp {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
           {notes !== undefined && (
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Ghi chú / Sự việc bất thường</label>
+              <label className="text-sm font-medium text-foreground mb-2 sm:mb-2.5 block">Ghi chú / Sự việc bất thường</label>
               <Textarea
                 placeholder="Nhập ghi chú nếu có..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={2}
+                rows={3}
+                className="text-base sm:text-sm min-h-[80px] sm:min-h-[60px]"
               />
             </div>
           )}
@@ -307,35 +313,35 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
 
       {/* Student List - Click để đánh dấu vắng */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3">
+        <CardHeader className="pb-3 sm:pb-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Users className="h-5 w-5 text-primary" />
                 Chọn học sinh vắng ({absentStudents.length}/{reportStudents.length})
               </CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={markAllPresent} className="flex-1 sm:flex-initial">
-                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                <Button variant="outline" size="default" onClick={markAllPresent} className="flex-1 sm:flex-initial h-11 sm:h-9 text-sm">
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
                   <span className="hidden sm:inline">Đủ tất cả</span>
-                  <span className="sm:hidden">Đủ</span>
+                  <span className="sm:hidden">Đủ tất cả</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={markAllAbsent} className="flex-1 sm:flex-initial">
-                  <XCircle className="h-4 w-4 mr-1" />
+                <Button variant="outline" size="default" onClick={markAllAbsent} className="flex-1 sm:flex-initial h-11 sm:h-9 text-sm">
+                  <XCircle className="h-4 w-4 mr-1.5" />
                   <span className="hidden sm:inline">Vắng tất cả</span>
-                  <span className="sm:hidden">Vắng</span>
+                  <span className="sm:hidden">Vắng tất cả</span>
                 </Button>
               </div>
             </div>
             
-            {/* Lọc theo lớp */}
+            {/* Lọc theo lớp - Larger touch targets on mobile */}
             {classesInReport.length > 1 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant={viewClassFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
+                  size="default"
                   onClick={() => setViewClassFilter('all')}
-                  className="text-xs h-7"
+                  className="text-sm h-9 sm:h-8 px-3"
                 >
                   Tất cả ({reportStudents.length})
                 </Button>
@@ -346,9 +352,9 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
                     <Button
                       key={c.id}
                       variant={viewClassFilter === c.id ? 'default' : 'outline'}
-                      size="sm"
+                      size="default"
                       onClick={() => setViewClassFilter(c.id)}
-                      className="text-xs h-7"
+                      className="text-sm h-9 sm:h-8 px-3"
                     >
                       {c.name} {classAbsentCount > 0 && <span className="text-destructive ml-1">({classAbsentCount})</span>}
                     </Button>
@@ -357,40 +363,41 @@ export function AttendanceForm({ type, title, filterClassId }: AttendanceFormPro
               </div>
             )}
             
-            <p className="text-xs text-muted-foreground">
-              Mặc định tất cả đủ. Click vào học sinh để đánh dấu vắng.
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Mặc định tất cả đủ. Nhấn vào học sinh để đánh dấu vắng.
               {viewClassFilter !== 'all' && ` Đang hiển thị: ${displayStudents.length} học sinh`}
             </p>
           </div>
         </CardHeader>
         <CardContent className="pt-0 sm:pt-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
             {displayStudents.map((student) => {
               const isAbsent = absentStudentIds.has(student.id);
               return (
                 <div
                   key={student.id}
-                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${
+                  className={`flex items-center gap-3 p-3.5 sm:p-3 rounded-xl sm:rounded-lg border-2 sm:border transition-all cursor-pointer active:scale-[0.98] ${
                     isAbsent
-                      ? 'bg-destructive/10 border-destructive/30'
-                      : 'bg-success/5 border-success/20'
+                      ? 'bg-destructive/10 border-destructive/40'
+                      : 'bg-success/5 border-success/30'
                   }`}
                   onClick={() => toggleAbsent(student.id)}
                 >
                   <Checkbox
                     checked={isAbsent}
                     onCheckedChange={() => toggleAbsent(student.id)}
+                    className="h-5 w-5 sm:h-4 sm:w-4"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate text-sm sm:text-base">{student.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="font-medium text-foreground truncate text-base sm:text-sm">{student.name}</p>
+                    <p className="text-sm sm:text-xs text-muted-foreground truncate mt-0.5">
                       {getClassName(student.classId)} • P.{student.room} • M.{student.mealGroup}
                     </p>
                   </div>
                   {isAbsent ? (
-                    <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+                    <XCircle className="h-6 w-6 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
                   ) : (
-                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
+                    <CheckCircle2 className="h-6 w-6 sm:h-5 sm:w-5 text-success flex-shrink-0" />
                   )}
                 </div>
               );
