@@ -16,6 +16,7 @@ import Meals from "./pages/Meals";
 import Statistics from "./pages/Statistics";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
+import MobileMenu from "./pages/MobileMenu";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
@@ -109,6 +110,16 @@ const App = () => (
                   <ProtectedRoute requiredRoles={['admin']}>
                     <MainLayout>
                       <UserManagement />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/menu"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <MobileMenu />
                     </MainLayout>
                   </ProtectedRoute>
                 }
