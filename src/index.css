@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safe area insets for mobile devices with notches */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
 @layer base {
   :root {
     --background: 210 20% 98%;
