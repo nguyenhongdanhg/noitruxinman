@@ -21,46 +21,49 @@ export function AbsentStudentRow({
   onPermissionChange,
 }: AbsentStudentRowProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+    <div className="flex flex-col gap-3 sm:gap-4 p-4 sm:p-3 rounded-xl sm:rounded-lg bg-destructive/5 border-2 sm:border border-destructive/30 sm:border-destructive/20">
+      {/* Student Info */}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground">{student.name}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="font-semibold text-foreground text-base sm:text-sm">{student.name}</p>
+        <p className="text-sm sm:text-xs text-muted-foreground mt-0.5">
           Lớp {getClassName(student.classId)} • Phòng {student.room} • Mâm {student.mealGroup}
         </p>
       </div>
       
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        {/* Permission Radio */}
+      {/* Permission + Reason Row */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+        {/* Permission Radio - Larger touch targets */}
         <RadioGroup
           value={permission}
           onValueChange={(value) => onPermissionChange(value as 'P' | 'KP')}
-          className="flex gap-3"
+          className="flex gap-4 sm:gap-3"
         >
-          <div className="flex items-center space-x-1.5">
-            <RadioGroupItem value="P" id={`p-${student.id}`} />
+          <div className="flex items-center space-x-2 sm:space-x-1.5">
+            <RadioGroupItem value="P" id={`p-${student.id}`} className="h-5 w-5 sm:h-4 sm:w-4" />
             <Label 
               htmlFor={`p-${student.id}`} 
-              className="text-sm font-medium text-success cursor-pointer"
+              className="text-base sm:text-sm font-semibold text-success cursor-pointer py-1"
             >
-              P
+              Có phép
             </Label>
           </div>
-          <div className="flex items-center space-x-1.5">
-            <RadioGroupItem value="KP" id={`kp-${student.id}`} />
+          <div className="flex items-center space-x-2 sm:space-x-1.5">
+            <RadioGroupItem value="KP" id={`kp-${student.id}`} className="h-5 w-5 sm:h-4 sm:w-4" />
             <Label 
               htmlFor={`kp-${student.id}`} 
-              className="text-sm font-medium text-destructive cursor-pointer"
+              className="text-base sm:text-sm font-semibold text-destructive cursor-pointer py-1"
             >
-              KP
+              Không phép
             </Label>
           </div>
         </RadioGroup>
         
+        {/* Reason Input - Larger on mobile */}
         <Input
           placeholder="Lý do vắng..."
           value={reason}
           onChange={(e) => onReasonChange(e.target.value)}
-          className="w-full sm:w-40"
+          className="w-full sm:w-44 h-12 sm:h-10 text-base sm:text-sm"
         />
       </div>
     </div>
