@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, UserPlus, Pencil, KeyRound, Loader2, ShieldCheck, Trash2, FolderKey } from 'lucide-react';
+import { Users, UserPlus, Pencil, KeyRound, Loader2, ShieldCheck, Trash2, FolderKey, CheckSquare } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
@@ -23,6 +23,7 @@ import { UserExcelExport } from '@/components/users/UserExcelExport';
 import { FeatureManager } from '@/components/users/FeatureManager';
 import { PermissionGroupManager } from '@/components/users/PermissionGroupManager';
 import { UserGroupAssignment } from '@/components/users/UserGroupAssignment';
+import { BulkGroupAssignment } from '@/components/users/BulkGroupAssignment';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -76,7 +77,30 @@ export default function UserManagement() {
   const [groupAssignmentOpen, setGroupAssignmentOpen] = useState(false);
   const [groupAssignmentUser, setGroupAssignmentUser] = useState<UserWithRoles | null>(null);
 
+  // Bulk selection state
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [bulkGroupAssignmentOpen, setBulkGroupAssignmentOpen] = useState(false);
+
   const isAdmin = hasRole('admin');
+
+  const selectedUsers = users.filter(u => selectedUserIds.includes(u.id));
+  const allSelected = users.length > 0 && selectedUserIds.length === users.length;
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(users.map(u => u.id));
+    }
+  };
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -399,15 +423,46 @@ export default function UserManagement() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách người dùng</CardTitle>
-          <CardDescription>
-            Quản lý quyền truy cập của từng người dùng - bấm vào nút sửa để phân quyền
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Danh sách người dùng</CardTitle>
+              <CardDescription>
+                Quản lý quyền truy cập của từng người dùng - bấm vào nút sửa để phân quyền
+              </CardDescription>
+            </div>
+            {selectedUserIds.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Đã chọn {selectedUserIds.length} người
+                </span>
+                <Button
+                  onClick={() => setBulkGroupAssignmentOpen(true)}
+                  className="gap-2"
+                >
+                  <FolderKey className="h-4 w-4" />
+                  Gán nhóm quyền
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedUserIds([])}
+                >
+                  Bỏ chọn
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Chọn tất cả"
+                  />
+                </TableHead>
                 <TableHead className="w-12">STT</TableHead>
                 <TableHead>Họ và tên</TableHead>
                 <TableHead>Tài khoản đăng nhập</TableHead>
@@ -421,19 +476,26 @@ export default function UserManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     Đang tải...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Chưa có người dùng nào
                   </TableCell>
                 </TableRow>
               ) : (
                 users.map((user, index) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className={selectedUserIds.includes(user.id) ? 'bg-muted/50' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUserIds.includes(user.id)}
+                        onCheckedChange={() => handleSelectUser(user.id)}
+                        aria-label={`Chọn ${user.full_name}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>
@@ -674,6 +736,18 @@ export default function UserManagement() {
           onSaved={fetchUsers}
         />
       )}
+
+      {/* Bulk Group Assignment Dialog */}
+      <BulkGroupAssignment
+        userIds={selectedUserIds}
+        userNames={selectedUsers.map(u => u.full_name)}
+        open={bulkGroupAssignmentOpen}
+        onOpenChange={setBulkGroupAssignmentOpen}
+        onSaved={() => {
+          setSelectedUserIds([]);
+          fetchUsers();
+        }}
+      />
 
       {/* Delete User Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
