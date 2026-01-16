@@ -26,31 +26,78 @@ export function MealDailyStats() {
 
   // Lấy các báo cáo bữa ăn cho ngày đã chọn
   // Bữa sáng của ngày X là báo cáo của ngày (X-1) với mealType = 'breakfast'
+  // CHỈ LẤY BÁO CÁO MỚI NHẤT cho mỗi lớp (không cộng dồn)
   const getMealReports = useMemo(() => {
     const date = parseISO(selectedDate);
     const previousDay = format(addDays(date, -1), 'yyyy-MM-dd');
     
+    // Hàm lấy báo cáo mới nhất cho mỗi lớp
+    const getLatestReportsPerClass = (allReports: typeof reports) => {
+      const latestByClass = new Map<string, typeof reports[0]>();
+      
+      // Sắp xếp theo thời gian tạo mới nhất trước
+      const sortedReports = [...allReports].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      sortedReports.forEach(report => {
+        // Lấy classId từ absentStudents hoặc từ report
+        const classIds = new Set<string>();
+        report.absentStudents.forEach(a => classIds.add(a.classId));
+        
+        // Nếu không có học sinh vắng, cần xác định lớp từ context khác
+        // Giả sử mỗi báo cáo chỉ cho 1 lớp dựa trên học sinh trong đó
+        if (classIds.size === 0) {
+          // Có thể là lớp báo đủ (không ai vắng) - lấy từ tổng số học sinh
+          // Dựa vào totalStudents để match với lớp
+          const boardingStudents = students.filter(s => s.room);
+          classes.forEach(c => {
+            const classStudentCount = boardingStudents.filter(s => s.classId === c.id).length;
+            if (classStudentCount > 0 && report.totalStudents === classStudentCount) {
+              classIds.add(c.id);
+            }
+          });
+        }
+        
+        // Chỉ giữ báo cáo mới nhất cho mỗi lớp
+        classIds.forEach(classId => {
+          if (!latestByClass.has(classId)) {
+            latestByClass.set(classId, report);
+          }
+        });
+      });
+      
+      return Array.from(latestByClass.values());
+    };
+    
     // Lọc báo cáo bữa ăn
-    const breakfastReports = reports.filter(r => 
+    const allBreakfastReports = reports.filter(r => 
       r.type === 'meal' && r.mealType === 'breakfast' && r.date === previousDay
     );
-    const lunchReports = reports.filter(r => 
+    const allLunchReports = reports.filter(r => 
       r.type === 'meal' && r.mealType === 'lunch' && r.date === selectedDate
     );
-    const dinnerReports = reports.filter(r => 
+    const allDinnerReports = reports.filter(r => 
       r.type === 'meal' && r.mealType === 'dinner' && r.date === selectedDate
     );
 
-    return { breakfastReports, lunchReports, dinnerReports };
-  }, [reports, selectedDate]);
+    return { 
+      breakfastReports: getLatestReportsPerClass(allBreakfastReports), 
+      lunchReports: getLatestReportsPerClass(allLunchReports), 
+      dinnerReports: getLatestReportsPerClass(allDinnerReports) 
+    };
+  }, [reports, selectedDate, students]);
 
   // Tính toán thống kê cho mỗi bữa
   const mealStats = useMemo(() => {
+    // Lấy tổng số học sinh nội trú (có room)
+    const boardingStudents = students.filter(s => s.room);
+    const totalBoardingStudents = boardingStudents.length;
+
     const calculateStats = (mealReports: typeof reports, mealType: 'breakfast' | 'lunch' | 'dinner') => {
       // Lấy danh sách các lớp đã báo (theo classId trong báo cáo)
       const reportedClassIds = new Set<string>();
-      let totalReported = 0;
-      let totalAbsent = 0;
+      const absentStudentIds = new Set<string>(); // Để tránh trùng lặp học sinh
       const absentStudents: Array<{
         name: string;
         className: string;
@@ -60,41 +107,46 @@ export function MealDailyStats() {
       }> = [];
 
       mealReports.forEach(report => {
-        // Tìm classId từ báo cáo dựa trên học sinh
-        const studentIds = new Set(report.absentStudents.map(a => a.studentId));
-        const classStudentsMap = new Map<string, number>();
-        
-        students.forEach(student => {
-          if (!classStudentsMap.has(student.classId)) {
-            classStudentsMap.set(student.classId, 0);
-          }
-        });
-
-        // Đánh dấu lớp đã báo nếu có báo cáo cho lớp đó
+        // Đánh dấu lớp đã báo và thu thập học sinh vắng
         report.absentStudents.forEach(absent => {
           reportedClassIds.add(absent.classId);
-          absentStudents.push({
-            name: absent.name,
-            className: classes.find(c => c.id === absent.classId)?.name || absent.classId,
-            mealGroup: absent.mealGroup,
-            permission: absent.permission,
-            reason: absent.reason,
-          });
+          // Chỉ thêm nếu chưa có (tránh trùng lặp)
+          if (!absentStudentIds.has(absent.studentId)) {
+            absentStudentIds.add(absent.studentId);
+            absentStudents.push({
+              name: absent.name,
+              className: classes.find(c => c.id === absent.classId)?.name || absent.classId,
+              mealGroup: absent.mealGroup,
+              permission: absent.permission,
+              reason: absent.reason,
+            });
+          }
         });
-
-        totalReported += report.presentCount + report.absentCount;
-        totalAbsent += report.absentCount;
+        
+        // Nếu không có ai vắng, vẫn đánh dấu lớp đã báo
+        if (report.absentStudents.length === 0 && report.totalStudents > 0) {
+          classes.forEach(c => {
+            const classStudentCount = boardingStudents.filter(s => s.classId === c.id).length;
+            if (classStudentCount > 0 && report.totalStudents === classStudentCount) {
+              reportedClassIds.add(c.id);
+            }
+          });
+        }
       });
 
-      // Xác định lớp đã báo dựa trên classId trong absentStudents
-      // Hoặc dựa trên việc tổng số = số học sinh của lớp
+      // Xác định lớp đã báo và chưa báo
       const allClasses = classes;
       const missingClasses = allClasses.filter(c => !reportedClassIds.has(c.id));
       const reportedClasses = allClasses.filter(c => reportedClassIds.has(c.id));
 
-      // Lấy tổng số học sinh nội trú (có room)
-      const boardingStudents = students.filter(s => s.room);
-      const presentCount = totalReported - totalAbsent;
+      // Tính số có mặt và vắng dựa trên học sinh nội trú của các lớp đã báo
+      const reportedBoardingStudents = boardingStudents.filter(s => reportedClassIds.has(s.classId));
+      const totalReportedStudents = reportedBoardingStudents.length;
+      const totalAbsent = absentStudents.length;
+      
+      // Đảm bảo số có mặt không âm và không vượt quá tổng số học sinh
+      let presentCount = totalReportedStudents - totalAbsent;
+      presentCount = Math.max(0, Math.min(presentCount, totalBoardingStudents));
 
       // Tính thống kê theo mâm (cho bữa trưa/tối)
       const mealGroupStats: Record<string, { total: number; present: number; absent: number; absentStudents: Array<{ name: string; className: string; permission?: 'P' | 'KP' }> }> = {};
@@ -103,11 +155,12 @@ export function MealDailyStats() {
       mealGroups.forEach(group => {
         const groupStudents = boardingStudents.filter(s => s.mealGroup === group);
         const absentInGroup = absentStudents.filter(a => a.mealGroup === group);
-        const presentInGroup = groupStudents.length - absentInGroup.length;
+        // Đảm bảo số có mặt không âm và không vượt quá tổng số học sinh trong mâm
+        const presentInGroup = Math.max(0, Math.min(groupStudents.length - absentInGroup.length, groupStudents.length));
         mealGroupStats[group] = {
           total: groupStudents.length,
-          present: presentInGroup > 0 ? presentInGroup : 0,
-          absent: absentInGroup.length,
+          present: presentInGroup,
+          absent: Math.min(absentInGroup.length, groupStudents.length),
           absentStudents: absentInGroup.map(a => ({
             name: a.name,
             className: a.className,
@@ -122,16 +175,14 @@ export function MealDailyStats() {
       
       classIds.forEach(classId => {
         const classStudents = boardingStudents.filter(s => s.classId === classId);
-        const absentInClass = absentStudents.filter(a => {
-          const student = boardingStudents.find(s => s.name === a.name && s.classId === classId);
-          return student !== undefined || (a.className === classes.find(c => c.id === classId)?.name);
-        }).filter(a => a.className === classes.find(c => c.id === classId)?.name);
-        const presentInClass = classStudents.length - absentInClass.length;
         const className = classes.find(c => c.id === classId)?.name || classId;
+        const absentInClass = absentStudents.filter(a => a.className === className);
+        // Đảm bảo số có mặt không âm và không vượt quá tổng số học sinh trong lớp
+        const presentInClass = Math.max(0, Math.min(classStudents.length - absentInClass.length, classStudents.length));
         classStats[className] = {
           total: classStudents.length,
-          present: presentInClass > 0 ? presentInClass : 0,
-          absent: absentInClass.length,
+          present: presentInClass,
+          absent: Math.min(absentInClass.length, classStudents.length),
           absentStudents: absentInClass.map(a => ({
             name: a.name,
             permission: a.permission,
@@ -142,10 +193,10 @@ export function MealDailyStats() {
       return {
         reportedClasses,
         missingClasses,
-        totalStudents: boardingStudents.length,
-        reportedCount: mealReports.length > 0 ? totalReported : 0,
+        totalStudents: totalBoardingStudents,
+        reportedCount: mealReports.length > 0 ? totalReportedStudents : 0,
         presentCount: mealReports.length > 0 ? presentCount : 0,
-        absentCount: mealReports.length > 0 ? totalAbsent : 0,
+        absentCount: mealReports.length > 0 ? Math.min(totalAbsent, totalBoardingStudents) : 0,
         absentStudents,
         hasReports: mealReports.length > 0,
         mealGroupStats,
