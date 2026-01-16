@@ -26,6 +26,11 @@ import { UserGroupAssignment } from '@/components/users/UserGroupAssignment';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
+interface PermissionGroup {
+  id: string;
+  name: string;
+}
+
 interface UserWithRoles {
   id: string;
   full_name: string;
@@ -34,6 +39,7 @@ interface UserWithRoles {
   email: string | null;
   class_id: string | null;
   roles: AppRole[];
+  permission_groups: PermissionGroup[];
 }
 
 const allRoles: { role: AppRole; label: string; description: string; icon: React.ReactNode }[] = [
@@ -135,6 +141,20 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch permission groups
+      const { data: permissionGroups, error: groupsError } = await supabase
+        .from('permission_groups')
+        .select('id, name');
+
+      if (groupsError) throw groupsError;
+
+      // Fetch user permission groups
+      const { data: userPermissionGroups, error: userGroupsError } = await supabase
+        .from('user_permission_groups')
+        .select('user_id, group_id');
+
+      if (userGroupsError) throw userGroupsError;
+
       // Fetch emails from auth.users via edge function or RPC
       // For now, we'll use the admin-get-users approach
       const { data: { session } } = await supabase.auth.getSession();
@@ -162,6 +182,15 @@ export default function UserManagement() {
 
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => {
         const authUser = usersWithEmails.find(u => u.id === profile.id);
+        
+        // Get user's permission groups
+        const userGroupIds = (userPermissionGroups || [])
+          .filter(ug => ug.user_id === profile.id)
+          .map(ug => ug.group_id);
+        
+        const userGroups = (permissionGroups || [])
+          .filter(g => userGroupIds.includes(g.id));
+
         return {
           id: profile.id,
           full_name: profile.full_name,
@@ -171,7 +200,8 @@ export default function UserManagement() {
           class_id: profile.class_id,
           roles: (allRolesData || [])
             .filter(r => r.user_id === profile.id)
-            .map(r => r.role)
+            .map(r => r.role),
+          permission_groups: userGroups
         };
       });
 
@@ -518,7 +548,7 @@ export default function UserManagement() {
                 <TableHead>Tài khoản đăng nhập</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>SĐT</TableHead>
-                <TableHead>Vai trò</TableHead>
+                <TableHead>Nhóm quyền</TableHead>
                 <TableHead>Lớp CN</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
@@ -556,11 +586,15 @@ export default function UserManagement() {
                     <TableCell>{user.phone || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {user.roles.map((role) => (
-                          <Badge key={role} variant={roleBadgeVariants[role]}>
-                            {roleLabels[role]}
-                          </Badge>
-                        ))}
+                        {user.permission_groups.length > 0 ? (
+                          user.permission_groups.map((group) => (
+                            <Badge key={group.id} variant="secondary">
+                              {group.name}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground text-sm italic">Chưa gán</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
