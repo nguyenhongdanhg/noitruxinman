@@ -136,11 +136,15 @@ export function MealDailyStats() {
     };
   }, [getMealReports, students]);
 
-  // Tính số gạo cần dùng trong ngày
-  const totalRice = useMemo(() => {
+  // Tính số gạo cần dùng trong ngày (tách theo bữa)
+  const riceStats = useMemo(() => {
     const lunchRice = mealStats.lunch.presentCount * RICE_PER_STUDENT;
     const dinnerRice = mealStats.dinner.presentCount * RICE_PER_STUDENT;
-    return lunchRice + dinnerRice;
+    return {
+      lunch: lunchRice,
+      dinner: dinnerRice,
+      total: lunchRice + dinnerRice,
+    };
   }, [mealStats]);
 
   const getMealLabel = (mealType: 'breakfast' | 'lunch' | 'dinner') => {
@@ -204,7 +208,7 @@ export function MealDailyStats() {
       message += '\n';
     });
 
-    message += `\n🍚 Số gạo cần dùng: ${totalRice.toFixed(1)} kg\n`;
+    message += `\n🍚 Số gạo: Trưa ${riceStats.lunch.toFixed(1)}kg + Tối ${riceStats.dinner.toFixed(1)}kg = ${riceStats.total.toFixed(1)}kg\n`;
     
     // Danh sách lớp chưa báo
     const allMissingClasses = new Set([
@@ -240,131 +244,102 @@ export function MealDailyStats() {
     const isComplete = stats.missingClasses.length === 0 && stats.hasReports;
 
     return (
-      <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+      <div className="space-y-2 p-3 rounded-lg bg-muted/30 border">
+        {/* Header compact */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{getMealIcon(mealType)}</span>
-            <span className="font-semibold">{getMealLabel(mealType)}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">{getMealIcon(mealType)}</span>
+            <span className="font-semibold text-sm">{getMealLabel(mealType)}</span>
           </div>
           {stats.hasReports ? (
-            <Badge variant={isComplete ? "default" : "secondary"}>
-              {isComplete ? (
-                <><CheckCircle2 className="h-3 w-3 mr-1" /> Đủ</>
-              ) : (
-                <><AlertCircle className="h-3 w-3 mr-1" /> Thiếu {stats.missingClasses.length} lớp</>
-              )}
+            <Badge variant={isComplete ? "default" : "secondary"} className="text-[10px] h-5">
+              {isComplete ? "Đủ" : `Thiếu ${stats.missingClasses.length}`}
             </Badge>
           ) : (
-            <Badge variant="destructive">Chưa có báo cáo</Badge>
+            <Badge variant="destructive" className="text-[10px] h-5">Chưa báo</Badge>
           )}
         </div>
 
         {stats.hasReports && (
           <>
-            {/* Số liệu */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Sỹ số:</span>
-              <span className="font-bold text-lg">
-                {stats.presentCount}
-                <span className="text-muted-foreground font-normal text-base">/{stats.totalStudents}</span>
+            {/* Sỹ số compact */}
+            <div className="flex items-center justify-between text-sm bg-background/50 rounded px-2 py-1">
+              <span className="text-muted-foreground text-xs">Có mặt:</span>
+              <span className="font-bold">
+                {stats.presentCount}<span className="text-muted-foreground font-normal">/{stats.totalStudents}</span>
               </span>
             </div>
 
-            {/* Lớp đã báo */}
-            {stats.reportedClasses.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                  Đã báo ({stats.reportedClasses.length}):
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {stats.reportedClasses.map(c => (
-                    <Badge key={c.id} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                      {c.name}
-                    </Badge>
-                  ))}
-                </div>
+            {/* Lớp đã báo/chưa báo - compact */}
+            <div className="grid grid-cols-2 gap-1 text-[10px]">
+              <div className="bg-green-50 rounded p-1.5">
+                <p className="font-medium text-green-700 mb-0.5">✓ Đã báo ({stats.reportedClasses.length})</p>
+                <p className="text-green-600 truncate">{stats.reportedClasses.map(c => c.name).join(', ') || '-'}</p>
               </div>
-            )}
-
-            {/* Lớp chưa báo */}
-            {stats.missingClasses.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3 text-amber-500" />
-                  Chưa báo ({stats.missingClasses.length}):
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {stats.missingClasses.map(c => (
-                    <Badge key={c.id} variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                      {c.name}
-                    </Badge>
-                  ))}
-                </div>
+              <div className="bg-amber-50 rounded p-1.5">
+                <p className="font-medium text-amber-700 mb-0.5">⚠ Chưa báo ({stats.missingClasses.length})</p>
+                <p className="text-amber-600 truncate">{stats.missingClasses.map(c => c.name).join(', ') || '-'}</p>
               </div>
-            )}
+            </div>
 
-            {/* Danh sách vắng theo mâm */}
+            {/* Danh sách vắng theo mâm - dạng danh sách đánh số */}
             {stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length > 0 && (
-              <div className="space-y-2 pt-2 border-t">
-                <p className="text-xs font-medium text-destructive flex items-center gap-1">
-                  <Utensils className="h-3 w-3" />
-                  Vắng theo mâm: {stats.absentCount} học sinh
+              <div className="pt-2 border-t space-y-1.5">
+                <p className="text-xs font-semibold text-destructive">
+                  Vắng theo mâm ({stats.absentCount}):
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1 max-h-40 overflow-y-auto">
                   {Object.entries(stats.mealGroupStats)
                     .filter(([_, data]) => data.absent > 0)
                     .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([group, data]) => (
-                      <div key={group} className="bg-destructive/5 rounded-md p-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold text-destructive">
-                            Mâm {group}
-                          </span>
-                          <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 text-amber-700 border-amber-200">
+                    .map(([group, data], groupIdx) => (
+                      <div key={group} className="bg-destructive/5 rounded p-1.5">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="font-semibold text-destructive">Mâm {group}</span>
+                          <span className="text-amber-700 bg-amber-100 px-1.5 rounded text-[10px]">
                             {data.present}/{data.total}
-                          </Badge>
+                          </span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
+                        <ol className="list-decimal list-inside text-[10px] space-y-0.5 text-muted-foreground">
                           {data.absentStudents.map((s, idx) => (
-                            <span
-                              key={idx}
-                              className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded",
-                                s.permission === 'P' 
-                                  ? 'bg-green-100 text-green-700' 
-                                  : 'bg-red-100 text-red-700'
-                              )}
-                            >
-                              {s.name} ({s.className}) {s.permission === 'P' ? 'P' : 'KP'}
-                            </span>
+                            <li key={idx}>
+                              <span className="font-medium text-foreground">{s.name}</span>
+                              <span className="text-muted-foreground"> - {s.className}</span>
+                              <span className={cn(
+                                "ml-1 px-1 rounded",
+                                s.permission === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                              )}>
+                                {s.permission === 'P' ? 'P' : 'KP'}
+                              </span>
+                            </li>
                           ))}
-                        </div>
+                        </ol>
                       </div>
                     ))}
                 </div>
               </div>
             )}
 
-            {/* Danh sách vắng không có mâm */}
+            {/* Danh sách vắng không có mâm - dạng danh sách đánh số */}
             {stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length === 0 && (
-              <div className="space-y-1 pt-2 border-t">
-                <p className="text-xs font-medium text-destructive">
-                  Vắng: {stats.absentCount} học sinh
+              <div className="pt-2 border-t">
+                <p className="text-xs font-semibold text-destructive mb-1">
+                  Vắng ({stats.absentCount}):
                 </p>
-                <div className="max-h-32 overflow-y-auto space-y-1">
+                <ol className="list-decimal list-inside text-[10px] space-y-0.5 max-h-32 overflow-y-auto">
                   {stats.absentStudents.map((s, idx) => (
-                    <div key={idx} className="text-xs flex items-center justify-between p-1.5 rounded bg-destructive/5">
-                      <span>{s.name} - {s.className}</span>
+                    <li key={idx}>
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground"> - {s.className}</span>
                       <span className={cn(
-                        "px-1 rounded text-[10px]",
+                        "ml-1 px-1 rounded text-[10px]",
                         s.permission === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       )}>
                         {s.permission === 'P' ? 'P' : 'KP'}
                       </span>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ol>
               </div>
             )}
           </>
@@ -411,12 +386,26 @@ export function MealDailyStats() {
             {renderMealCard('dinner')}
           </div>
 
-          {/* Số gạo */}
-          <div className="flex items-center justify-center gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200">
-            <Scale className="h-5 w-5 text-amber-600" />
-            <span className="font-medium text-amber-800">
-              Số gạo cần dùng trong ngày: <span className="text-xl font-bold">{totalRice.toFixed(1)} kg</span>
-            </span>
+          {/* Số gạo - tách theo bữa */}
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Scale className="h-4 w-4 text-amber-600" />
+              <span className="font-semibold text-amber-800 text-sm">Số gạo cần dùng</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-white/50 rounded p-2">
+                <p className="text-xs text-amber-600">Bữa trưa</p>
+                <p className="font-bold text-amber-800">{riceStats.lunch.toFixed(1)} kg</p>
+              </div>
+              <div className="bg-white/50 rounded p-2">
+                <p className="text-xs text-amber-600">Bữa tối</p>
+                <p className="font-bold text-amber-800">{riceStats.dinner.toFixed(1)} kg</p>
+              </div>
+              <div className="bg-amber-100 rounded p-2">
+                <p className="text-xs text-amber-700">Tổng</p>
+                <p className="font-bold text-amber-900 text-lg">{riceStats.total.toFixed(1)} kg</p>
+              </div>
+            </div>
           </div>
 
           {/* Tổng hợp */}
