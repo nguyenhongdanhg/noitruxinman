@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2, ShieldCheck, Trash2, FolderKey } from 'lucide-react';
+import { Users, UserPlus, Pencil, KeyRound, Loader2, ShieldCheck, Trash2, FolderKey } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
@@ -42,54 +42,7 @@ interface UserWithRoles {
   permission_groups: PermissionGroup[];
 }
 
-const allRoles: { role: AppRole; label: string; description: string; icon: React.ReactNode }[] = [
-  { 
-    role: 'admin', 
-    label: 'Quản trị viên', 
-    description: 'Toàn quyền quản lý hệ thống',
-    icon: <Shield className="h-4 w-4 text-destructive" />
-  },
-  { 
-    role: 'class_teacher', 
-    label: 'GVCN', 
-    description: 'Báo cơm, xem thống kê lớp',
-    icon: <GraduationCap className="h-4 w-4 text-primary" />
-  },
-  { 
-    role: 'teacher', 
-    label: 'Giáo viên', 
-    description: 'Điểm danh, xem thống kê sỹ số',
-    icon: <Users className="h-4 w-4 text-blue-500" />
-  },
-  { 
-    role: 'accountant', 
-    label: 'Kế toán', 
-    description: 'Xem thống kê bữa ăn',
-    icon: <Calculator className="h-4 w-4 text-green-500" />
-  },
-  { 
-    role: 'kitchen', 
-    label: 'Nhà bếp', 
-    description: 'Xem thống kê bữa ăn',
-    icon: <ChefHat className="h-4 w-4 text-orange-500" />
-  },
-];
-
-const roleLabels: Record<AppRole, string> = {
-  admin: 'Quản trị viên',
-  teacher: 'Giáo viên',
-  class_teacher: 'GVCN',
-  accountant: 'Kế toán',
-  kitchen: 'Nhà bếp'
-};
-
-const roleBadgeVariants: Record<AppRole, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  admin: 'destructive',
-  teacher: 'secondary',
-  class_teacher: 'default',
-  accountant: 'outline',
-  kitchen: 'outline'
-};
+// Bỏ phần vai trò - sử dụng nhóm quyền thay thế
 
 export default function UserManagement() {
   const { hasRole } = useAuth();
@@ -99,7 +52,6 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [editingPhone, setEditingPhone] = useState<string>('');
   const [editingName, setEditingName] = useState<string>('');
@@ -224,7 +176,6 @@ export default function UserManagement() {
 
   const handleEditUser = (user: UserWithRoles) => {
     setEditingUser(user);
-    setSelectedRoles(user.roles);
     setSelectedClass(user.class_id || '');
     setEditingPhone(user.phone || '');
     setEditingName(user.full_name);
@@ -363,59 +314,22 @@ export default function UserManagement() {
     }
   };
 
-  const handleRoleToggle = (role: AppRole) => {
-    setSelectedRoles(prev => 
-      prev.includes(role) 
-        ? prev.filter(r => r !== role)
-        : [...prev, role]
-    );
-  };
 
   const handleSaveUser = async () => {
     if (!editingUser || !isAdmin) return;
 
-    if (selectedRoles.length === 0) {
-      toast({
-        title: 'Lỗi',
-        description: 'Vui lòng chọn ít nhất một vai trò',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     try {
       // Update profile with class_id, phone, and name
-      const needsClassId = selectedRoles.includes('class_teacher');
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
-          class_id: needsClassId ? selectedClass || null : null,
+          class_id: selectedClass || null,
           phone: editingPhone || null,
           full_name: editingName
         })
         .eq('id', editingUser.id);
 
       if (profileError) throw profileError;
-
-      // Delete existing roles
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', editingUser.id);
-
-      if (deleteError) throw deleteError;
-
-      // Insert new roles
-      const rolesToInsert = selectedRoles.map(role => ({
-        user_id: editingUser.id,
-        role
-      }));
-
-      const { error: insertError } = await supabase
-        .from('user_roles')
-        .insert(rolesToInsert);
-
-      if (insertError) throw insertError;
 
       toast({
         title: 'Thành công',
@@ -476,61 +390,12 @@ export default function UserManagement() {
         <UserExcelExport users={users} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng người dùng</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{users.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Quản trị viên</CardTitle>
-            <Shield className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter(u => u.roles.includes('admin')).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">GVCN</CardTitle>
-            <GraduationCap className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter(u => u.roles.includes('class_teacher')).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Kế toán</CardTitle>
-            <Calculator className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter(u => u.roles.includes('accountant')).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nhà bếp</CardTitle>
-            <ChefHat className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {users.filter(u => u.roles.includes('kitchen')).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="p-4">
+        <div className="flex items-center gap-3">
+          <Users className="h-5 w-5 text-muted-foreground" />
+          <span className="text-lg font-semibold">Tổng số người dùng: {users.length}</span>
+        </div>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -655,12 +520,12 @@ export default function UserManagement() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Chỉnh sửa thông tin & quyền</DialogTitle>
+            <DialogTitle>Chỉnh sửa thông tin</DialogTitle>
             <DialogDescription>
-              Cập nhật thông tin và phân quyền cho người dùng
+              Cập nhật thông tin người dùng. Phân quyền được quản lý qua Nhóm quyền.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Họ và tên</Label>
               <Input 
@@ -679,47 +544,22 @@ export default function UserManagement() {
               />
             </div>
 
-            <div className="space-y-3">
-              <Label>Phân quyền chức năng</Label>
-              <div className="space-y-3 rounded-lg border p-4">
-                {allRoles.map(({ role, label, description, icon }) => (
-                  <div key={role} className="flex items-start space-x-3">
-                    <Checkbox
-                      id={role}
-                      checked={selectedRoles.includes(role)}
-                      onCheckedChange={() => handleRoleToggle(role)}
-                    />
-                    <div className="flex-1 grid gap-1">
-                      <div className="flex items-center gap-2">
-                        {icon}
-                        <Label htmlFor={role} className="font-medium cursor-pointer">
-                          {label}
-                        </Label>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="space-y-2">
+              <Label>Lớp chủ nhiệm</Label>
+              <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn lớp (nếu là GVCN)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Không chọn</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
-            {selectedRoles.includes('class_teacher') && (
-              <div className="space-y-2">
-                <Label>Lớp chủ nhiệm</Label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn lớp" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>

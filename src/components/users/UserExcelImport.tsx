@@ -1,31 +1,15 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { classes } from '@/data/mockData';
-
-type AppRole = Database['public']['Enums']['app_role'];
 
 interface ImportResult {
   success: number;
   failed: number;
   errors: string[];
 }
-
-const roleMapping: Record<string, AppRole> = {
-  'admin': 'admin',
-  'quản trị': 'admin',
-  'gvcn': 'class_teacher',
-  'chủ nhiệm': 'class_teacher',
-  'giáo viên': 'teacher',
-  'gv': 'teacher',
-  'kế toán': 'accountant',
-  'ketoan': 'accountant',
-  'nhà bếp': 'kitchen',
-  'bếp': 'kitchen',
-};
 
 interface UserExcelImportProps {
   onImportComplete: () => void;
@@ -37,24 +21,22 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
   const { toast } = useToast();
 
   const downloadTemplate = () => {
-    // Tạo file CSV với định dạng chuẩn Excel - mỗi thông tin 1 cột riêng
+    // Tạo file CSV với định dạng chuẩn Excel - không còn cột vai trò
     const headers = [
       'A: STT',
       'B: Email',
       'C: Mật khẩu (tối thiểu 6 ký tự)',
       'D: Họ và tên',
       'E: Số điện thoại',
-      'F: Vai trò (GVCN/Giáo viên/Kế toán/Nhà bếp/Admin)',
-      'G: Lớp chủ nhiệm (nếu là GVCN)'
+      'F: Lớp chủ nhiệm (nếu là GVCN)'
     ];
     
-    const dataHeaders = ['STT', 'Email', 'Mật khẩu', 'Họ và tên', 'Số điện thoại', 'Vai trò', 'Lớp chủ nhiệm'];
+    const dataHeaders = ['STT', 'Email', 'Mật khẩu', 'Họ và tên', 'Số điện thoại', 'Lớp chủ nhiệm'];
     
     const examples = [
-      ['1', 'giaovien1@school.edu.vn', 'matkhau123', 'Nguyễn Văn An', '0912345678', 'GVCN', '6A'],
-      ['2', 'giaovien2@school.edu.vn', 'matkhau123', 'Trần Thị Bình', '0923456789', 'Giáo viên', ''],
-      ['3', 'ketoan@school.edu.vn', 'matkhau123', 'Lê Văn Cường', '0934567890', 'Kế toán', ''],
-      ['4', 'bep@school.edu.vn', 'matkhau123', 'Phạm Thị Dung', '0945678901', 'Nhà bếp', ''],
+      ['1', 'giaovien1@school.edu.vn', 'matkhau123', 'Nguyễn Văn An', '0912345678', '6A'],
+      ['2', 'giaovien2@school.edu.vn', 'matkhau123', 'Trần Thị Bình', '0923456789', ''],
+      ['3', 'ketoan@school.edu.vn', 'matkhau123', 'Lê Văn Cường', '0934567890', ''],
     ];
 
     // Tạo nội dung với dòng hướng dẫn cột và dữ liệu
@@ -76,25 +58,6 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
       title: 'Tải xuống thành công',
       description: 'Mẫu danh sách tài khoản đã được tải xuống (file CSV)',
     });
-  };
-
-  const parseRoles = (roleString: string): AppRole[] => {
-    const roles: AppRole[] = [];
-    const roleParts = roleString.toLowerCase().split(/[,;|]+/).map(r => r.trim());
-    
-    for (const part of roleParts) {
-      const mappedRole = roleMapping[part];
-      if (mappedRole && !roles.includes(mappedRole)) {
-        roles.push(mappedRole);
-      }
-    }
-    
-    // Default to teacher if no valid role found
-    if (roles.length === 0) {
-      roles.push('teacher');
-    }
-    
-    return roles;
   };
 
   const parseClassId = (classStr: string): string | null => {
@@ -156,8 +119,7 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
         const password = values[2]?.trim();
         const fullName = values[3]?.trim();
         const phone = values[4]?.trim() || null;
-        const roleStr = values[5]?.trim() || 'Giáo viên';
-        const classStr = values[6]?.trim() || '';
+        const classStr = values[5]?.trim() || '';
 
         // Validate required fields
         if (!email || !password || !fullName) {
@@ -198,8 +160,7 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
           }
 
           const userId = authData.user.id;
-          const roles = parseRoles(roleStr);
-          const classId = roles.includes('class_teacher') ? parseClassId(classStr) : null;
+          const classId = parseClassId(classStr);
 
           // Update profile with additional info
           const { error: profileError } = await supabase
@@ -215,20 +176,6 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
             console.error('Profile update error:', profileError);
           }
 
-          // Insert roles
-          const rolesToInsert = roles.map(role => ({
-            user_id: userId,
-            role
-          }));
-
-          const { error: rolesError } = await supabase
-            .from('user_roles')
-            .insert(rolesToInsert);
-
-          if (rolesError) {
-            console.error('Roles insert error:', rolesError);
-          }
-
           result.success++;
         } catch (err) {
           result.failed++;
@@ -239,7 +186,7 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
       if (result.success > 0) {
         toast({
           title: 'Nhập dữ liệu hoàn tất',
-          description: `Thành công: ${result.success} tài khoản${result.failed > 0 ? `, Thất bại: ${result.failed}` : ''}`,
+          description: `Thành công: ${result.success} tài khoản${result.failed > 0 ? `, Thất bại: ${result.failed}` : ''}. Hãy gán nhóm quyền cho các tài khoản mới.`,
         });
         onImportComplete();
       } else {
@@ -317,15 +264,15 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
           </li>
           <li className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-500" />
-            Vai trò: GVCN, Giáo viên, Kế toán, Nhà bếp, Admin
-          </li>
-          <li className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            Lớp chủ nhiệm chỉ cần điền khi vai trò là GVCN
+            Lớp chủ nhiệm chỉ cần điền khi là GVCN
           </li>
           <li className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-yellow-500" />
             Mật khẩu phải có ít nhất 6 ký tự
+          </li>
+          <li className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            Sau khi nhập, hãy gán nhóm quyền cho tài khoản
           </li>
         </ul>
       </div>
