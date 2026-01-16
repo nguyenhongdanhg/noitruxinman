@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { MealReportReminder } from '@/components/meals/MealReportReminder';
 
 export default function Dashboard() {
   const { students, teachers, classes, reports, schoolInfo } = useApp();
@@ -137,6 +138,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Meal Report Reminder for Class Teachers */}
+      <MealReportReminder />
+
       {/* Welcome Banner */}
       <div className="rounded-2xl gradient-primary p-4 sm:p-6 text-primary-foreground shadow-lg relative overflow-hidden">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
