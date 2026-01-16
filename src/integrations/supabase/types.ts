@@ -229,6 +229,7 @@ export type Database = {
       students: {
         Row: {
           address: string | null
+          cccd: string | null
           class_id: string
           created_at: string
           date_of_birth: string | null
@@ -238,11 +239,13 @@ export type Database = {
           meal_group: string | null
           name: string
           parent_phone: string | null
+          phone: string | null
           room: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          cccd?: string | null
           class_id: string
           created_at?: string
           date_of_birth?: string | null
@@ -252,11 +255,13 @@ export type Database = {
           meal_group?: string | null
           name: string
           parent_phone?: string | null
+          phone?: string | null
           room?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          cccd?: string | null
           class_id?: string
           created_at?: string
           date_of_birth?: string | null
@@ -266,6 +271,7 @@ export type Database = {
           meal_group?: string | null
           name?: string
           parent_phone?: string | null
+          phone?: string | null
           room?: string | null
           updated_at?: string
         }

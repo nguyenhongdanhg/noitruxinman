@@ -6,6 +6,7 @@ import { StudentTable } from '@/components/students/StudentTable';
 import { ExcelImport } from '@/components/students/ExcelImport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -56,9 +57,14 @@ export default function Students() {
   const [formData, setFormData] = useState({
     name: '',
     dateOfBirth: '',
+    gender: '',
     classId: '',
+    cccd: '',
+    phone: '',
+    address: '',
     room: '',
     mealGroup: 'M1',
+    parentPhone: '',
   });
 
   // Chỉ admin hoặc class_teacher mới có quyền sửa/xóa
@@ -66,7 +72,18 @@ export default function Students() {
 
   const openAddDialog = () => {
     setEditingStudent(null);
-    setFormData({ name: '', dateOfBirth: '', classId: '', room: '', mealGroup: 'M1' });
+    setFormData({ 
+      name: '', 
+      dateOfBirth: '', 
+      gender: '',
+      classId: '', 
+      cccd: '',
+      phone: '',
+      address: '',
+      room: '', 
+      mealGroup: 'M1',
+      parentPhone: '',
+    });
     setIsDialogOpen(true);
   };
 
@@ -75,9 +92,14 @@ export default function Students() {
     setFormData({
       name: student.name,
       dateOfBirth: student.dateOfBirth,
+      gender: student.gender || '',
       classId: student.classId,
+      cccd: student.cccd || '',
+      phone: student.phone || '',
+      address: student.address || '',
       room: student.room,
       mealGroup: student.mealGroup,
+      parentPhone: student.parentPhone || '',
     });
     setIsDialogOpen(true);
   };
@@ -172,7 +194,7 @@ export default function Students() {
       <StudentTable onEdit={canEditDelete ? openEditDialog : undefined} onDelete={canEditDelete ? handleDelete : undefined} />
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingStudent ? 'Chỉnh sửa học sinh' : 'Thêm học sinh mới'}
@@ -183,77 +205,139 @@ export default function Students() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Họ và tên <span className="text-destructive">*</span>
-              </label>
-              <Input
-                placeholder="Nhập họ và tên"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+            {/* Thông tin cơ bản */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Label>
+                  Họ và tên <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  placeholder="Nhập họ và tên"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label>Ngày sinh</Label>
+                <Input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label>Giới tính</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(v) => setFormData({ ...formData, gender: v })}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Nam">Nam</SelectItem>
+                    <SelectItem value="Nữ">Nữ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>
+                  Lớp <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={formData.classId}
+                  onValueChange={(v) => setFormData({ ...formData, classId: v })}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Chọn lớp" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        Lớp {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>CCCD</Label>
+                <Input
+                  placeholder="Số CCCD"
+                  value={formData.cccd}
+                  onChange={(e) => setFormData({ ...formData, cccd: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label>Điện thoại học sinh</Label>
+                <Input
+                  placeholder="SĐT học sinh"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label>SĐT phụ huynh</Label>
+                <Input
+                  placeholder="SĐT phụ huynh"
+                  value={formData.parentPhone}
+                  onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <Label>Địa chỉ</Label>
+                <Input
+                  placeholder="Địa chỉ thường trú"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Ngày sinh
-              </label>
-              <Input
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-              />
-            </div>
+            {/* Thông tin nội trú */}
+            <div className="border-t pt-4">
+              <h4 className="font-semibold mb-3 text-primary">Thông tin nội trú</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Phòng KTX</Label>
+                  <Input
+                    placeholder="VD: P101"
+                    value={formData.room}
+                    onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                    className="mt-1.5"
+                  />
+                </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Lớp <span className="text-destructive">*</span>
-              </label>
-              <Select
-                value={formData.classId}
-                onValueChange={(v) => setFormData({ ...formData, classId: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn lớp" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      Lớp {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Phòng ở
-              </label>
-              <Input
-                placeholder="VD: P101"
-                value={formData.room}
-                onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Mâm ăn
-              </label>
-              <Select
-                value={formData.mealGroup}
-                onValueChange={(v) => setFormData({ ...formData, mealGroup: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="M1">Mâm 1</SelectItem>
-                  <SelectItem value="M2">Mâm 2</SelectItem>
-                  <SelectItem value="M3">Mâm 3</SelectItem>
-                </SelectContent>
-              </Select>
+                <div>
+                  <Label>Mâm ăn</Label>
+                  <Select
+                    value={formData.mealGroup}
+                    onValueChange={(v) => setFormData({ ...formData, mealGroup: v })}
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M1">Mâm 1</SelectItem>
+                      <SelectItem value="M2">Mâm 2</SelectItem>
+                      <SelectItem value="M3">Mâm 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
 

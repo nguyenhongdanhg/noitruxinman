@@ -31,9 +31,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Edit, Trash2, Search, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Edit, Trash2, Search, Loader2, Eye, User, Phone, MapPin, CreditCard, Calendar, Home, UtensilsCrossed } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface StudentTableProps {
@@ -50,6 +55,7 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
 
   // Chỉ admin hoặc class_teacher mới có quyền sửa/xóa
   const canEditDelete = hasRole('admin') || hasRole('class_teacher');
@@ -182,19 +188,23 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
               <TableHead className="w-12 text-center">STT</TableHead>
               <TableHead>Họ và tên</TableHead>
               <TableHead>Ngày sinh</TableHead>
+              <TableHead>Giới tính</TableHead>
               <TableHead>Lớp</TableHead>
-              <TableHead>Phòng ở</TableHead>
+              <TableHead>CCCD</TableHead>
+              <TableHead>Điện thoại</TableHead>
+              <TableHead>Phòng KTX</TableHead>
               <TableHead>Mâm ăn</TableHead>
-              {canEditDelete && <TableHead className="w-24 text-center">Thao tác</TableHead>}
+              {canEditDelete && <TableHead className="w-28 text-center">Thao tác</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredStudents.map((student, index) => (
               <TableRow 
                 key={student.id} 
-                className={`hover:bg-muted/30 transition-colors ${selectedIds.has(student.id) ? 'bg-primary/5' : ''}`}
+                className={`hover:bg-muted/30 transition-colors cursor-pointer ${selectedIds.has(student.id) ? 'bg-primary/5' : ''}`}
+                onClick={() => setViewingStudent(student)}
               >
-                <TableCell className="text-center">
+                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                   <Checkbox 
                     checked={selectedIds.has(student.id)}
                     onCheckedChange={(checked) => handleSelectOne(student.id, checked as boolean)}
@@ -204,11 +214,14 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
                 <TableCell className="text-center font-medium">{index + 1}</TableCell>
                 <TableCell className="font-medium">{student.name}</TableCell>
                 <TableCell>{student.dateOfBirth || '-'}</TableCell>
+                <TableCell>{student.gender || '-'}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                     {getClassName(student.classId)}
                   </span>
                 </TableCell>
+                <TableCell className="text-sm">{student.cccd || '-'}</TableCell>
+                <TableCell className="text-sm">{student.phone || '-'}</TableCell>
                 <TableCell>{student.room || '-'}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center rounded-full bg-accent/50 px-2.5 py-0.5 text-xs font-medium">
@@ -216,13 +229,23 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
                   </span>
                 </TableCell>
                 {canEditDelete && (
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-blue-500"
+                        onClick={() => setViewingStudent(student)}
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-primary"
                         onClick={() => onEdit?.(student)}
+                        title="Sửa"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -231,6 +254,7 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         onClick={() => onDelete?.(student.id)}
+                        title="Xóa"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -255,6 +279,109 @@ export function StudentTable({ onEdit, onDelete }: StudentTableProps) {
         )}
         Hiển thị {filteredStudents.length} / {students.length} học sinh
       </div>
+
+      {/* Student Detail Dialog */}
+      <Dialog open={!!viewingStudent} onOpenChange={(open) => !open && setViewingStudent(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Thông tin học sinh
+            </DialogTitle>
+            <DialogDescription>
+              Chi tiết thông tin cá nhân và nội trú
+            </DialogDescription>
+          </DialogHeader>
+          {viewingStudent && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <User className="h-3 w-3" /> Họ và tên
+                  </p>
+                  <p className="font-medium">{viewingStudent.name}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" /> Ngày sinh
+                  </p>
+                  <p className="font-medium">{viewingStudent.dateOfBirth || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Giới tính</p>
+                  <p className="font-medium">{viewingStudent.gender || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Lớp</p>
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-medium text-primary">
+                    {getClassName(viewingStudent.classId)}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <CreditCard className="h-3 w-3" /> CCCD
+                  </p>
+                  <p className="font-medium">{viewingStudent.cccd || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-3 w-3" /> Điện thoại
+                  </p>
+                  <p className="font-medium">{viewingStudent.phone || '-'}</p>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> Địa chỉ
+                  </p>
+                  <p className="font-medium">{viewingStudent.address || '-'}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3 text-primary">Thông tin nội trú</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Home className="h-3 w-3" /> Phòng KTX
+                    </p>
+                    <p className="font-medium">{viewingStudent.room || '-'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <UtensilsCrossed className="h-3 w-3" /> Mâm ăn
+                    </p>
+                    <span className="inline-flex items-center rounded-full bg-accent/50 px-2.5 py-0.5 text-sm font-medium">
+                      {viewingStudent.mealGroup || 'M1'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Phone className="h-3 w-3" /> SĐT Phụ huynh
+                    </p>
+                    <p className="font-medium">{viewingStudent.parentPhone || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {canEditDelete && (
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      onEdit?.(viewingStudent);
+                      setViewingStudent(null);
+                    }}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Chỉnh sửa
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

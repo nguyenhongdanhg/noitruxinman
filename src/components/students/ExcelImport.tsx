@@ -16,17 +16,21 @@ export function ExcelImport() {
       'A: STT',
       'B: Họ và tên', 
       'C: Ngày sinh',
-      'D: Lớp',
-      'E: Phòng ở',
-      'F: Mâm ăn'
+      'D: Giới tính',
+      'E: Lớp',
+      'F: CCCD',
+      'G: Điện thoại',
+      'H: Địa chỉ',
+      'I: Phòng KTX',
+      'J: Mâm ăn'
     ];
     
-    const dataHeaders = ['STT', 'Họ và tên', 'Ngày sinh', 'Lớp', 'Phòng ở', 'Mâm ăn'];
+    const dataHeaders = ['STT', 'Họ và tên', 'Ngày sinh', 'Giới tính', 'Lớp', 'CCCD', 'Điện thoại', 'Địa chỉ', 'Phòng KTX', 'Mâm ăn'];
     
     const examples = [
-      ['1', 'Nguyễn Văn An', '15/03/2010', '6A', 'P101', 'M1'],
-      ['2', 'Trần Thị Bình', '22/07/2010', '6A', 'P102', 'M2'],
-      ['3', 'Lê Hoàng Cường', '08/11/2010', '6B', 'P103', 'M1'],
+      ['1', 'Nguyễn Văn An', '15/03/2010', 'Nam', '6A', '012345678901', '0987654321', 'Hà Nội', 'P101', 'M1'],
+      ['2', 'Trần Thị Bình', '22/07/2010', 'Nữ', '6A', '012345678902', '0987654322', 'Hải Phòng', 'P102', 'M2'],
+      ['3', 'Lê Hoàng Cường', '08/11/2010', 'Nam', '6B', '012345678903', '0987654323', 'Hà Nam', 'P103', 'M1'],
     ];
 
     // Tạo nội dung với dòng hướng dẫn cột và dữ liệu
@@ -40,13 +44,13 @@ export function ExcelImport() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'mau_danh_sach_hoc_sinh.csv';
+    link.download = 'mau_danh_sach_hoc_sinh_noi_tru.csv';
     link.click();
     URL.revokeObjectURL(url);
 
     toast({
       title: 'Tải xuống thành công',
-      description: 'Mẫu danh sách học sinh đã được tải xuống (file CSV)',
+      description: 'Mẫu danh sách học sinh nội trú đã được tải xuống (file CSV)',
     });
   };
 
@@ -71,11 +75,12 @@ export function ExcelImport() {
         name: string;
         classId: string;
         dateOfBirth: string;
+        gender?: string;
+        cccd?: string;
+        phone?: string;
+        address?: string;
         room: string;
         mealGroup: string;
-        gender?: string;
-        parentPhone?: string;
-        address?: string;
       }> = [];
 
       for (let i = 1; i < dataLines.length; i++) {
@@ -83,17 +88,26 @@ export function ExcelImport() {
         const rawValues = dataLines[i].split(separator);
         const values = rawValues.map(v => v.trim().replace(/^"|"$/g, ''));
         if (values.length >= 3) {
+          // STT(0), Họ tên(1), Ngày sinh(2), Giới tính(3), Lớp(4), CCCD(5), ĐT(6), Địa chỉ(7), Phòng(8), Mâm(9)
           const name = values[1]?.trim();
           const dateOfBirth = values[2]?.trim() || '';
-          const classId = values[3]?.trim().toLowerCase().replace(' ', '');
-          const room = values[4]?.trim() || '';
-          const mealGroup = values[5]?.trim() || 'M1';
+          const gender = values[3]?.trim() || '';
+          const classId = values[4]?.trim().toLowerCase().replace(' ', '');
+          const cccd = values[5]?.trim() || '';
+          const phone = values[6]?.trim() || '';
+          const address = values[7]?.trim() || '';
+          const room = values[8]?.trim() || '';
+          const mealGroup = values[9]?.trim() || 'M1';
 
           if (name && classId) {
             newStudents.push({
               name,
               classId,
               dateOfBirth,
+              gender,
+              cccd,
+              phone,
+              address,
               room,
               mealGroup,
             });
