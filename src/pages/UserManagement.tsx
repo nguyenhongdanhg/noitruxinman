@@ -323,7 +323,7 @@ export default function UserManagement() {
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
-          class_id: selectedClass || null,
+          class_id: selectedClass && selectedClass !== '_none' ? selectedClass : null,
           phone: editingPhone || null,
           full_name: editingName
         })
@@ -551,7 +551,7 @@ export default function UserManagement() {
                   <SelectValue placeholder="Chọn lớp (nếu là GVCN)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Không chọn</SelectItem>
+                  <SelectItem value="_none">Không chọn</SelectItem>
                   {classes.map((cls) => (
                     <SelectItem key={cls.id} value={cls.id}>
                       {cls.name}
