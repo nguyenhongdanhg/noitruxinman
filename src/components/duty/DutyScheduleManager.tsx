@@ -604,11 +604,11 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
         {/* Table with proper horizontal scroll */}
         <div className="relative border rounded-md">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse" style={{ minWidth: `${150 + daysInMonth * 28}px` }}>
+            <table className="w-full text-xs border-collapse" style={{ minWidth: `${200 + daysInMonth * 28}px` }}>
               <thead className="bg-muted/50">
                 <tr className="border-b">
-                  <th className="px-1 py-1.5 text-left font-medium sticky left-0 bg-muted/50 z-20 w-6 border-r">#</th>
-                  <th className="px-1 py-1.5 text-left font-medium sticky left-6 bg-muted/50 z-20 w-24 min-w-[96px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Họ tên</th>
+                  <th className="px-1 py-1.5 text-left font-medium sticky left-0 bg-muted/50 z-20 w-8 border-r">#</th>
+                  <th className="px-2 py-1.5 text-left font-medium sticky left-8 bg-muted/50 z-20 w-40 min-w-[160px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Họ tên</th>
                   <th className="px-1 py-1.5 text-center font-medium w-6">SL</th>
                   {dayHeaders.map(({ day, isSunday }) => (
                     <th
@@ -624,7 +624,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                 </tr>
                 <tr className="border-b text-[10px] text-muted-foreground bg-muted/30">
                   <td className="sticky left-0 bg-muted/30 z-20 border-r"></td>
-                  <td className="sticky left-6 bg-muted/30 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                  <td className="sticky left-8 bg-muted/30 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
                   <td></td>
                   {dayHeaders.map(({ day, isSunday, label }) => (
                     <td
@@ -638,10 +638,9 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     </td>
                   ))}
                 </tr>
-                {/* Staff count row */}
                 <tr className="border-b bg-muted/20 text-[10px]">
                   <td className="sticky left-0 bg-muted/20 z-20 border-r"></td>
-                  <td className="sticky left-6 bg-muted/20 z-20 px-1 font-medium text-muted-foreground border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Số người</td>
+                  <td className="sticky left-8 bg-muted/20 z-20 px-2 font-medium text-muted-foreground border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Số người</td>
                   <td></td>
                   {dayHeaders.map(({ day, isSunday }) => {
                     const staffCount = getStaffCountForDay(day);
@@ -682,15 +681,15 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                         hasTooMany && "bg-orange-50/50 dark:bg-orange-950/10"
                       )}
                     >
-                      <td className={cn("px-1 py-0.5 text-center sticky left-0 z-20 text-muted-foreground border-r", rowBg)}>
+                      <td className={cn("px-1 py-0.5 text-center sticky left-0 z-20 text-muted-foreground border-r w-8", rowBg)}>
                         {index + 1}
                       </td>
                       <td 
-                        className={cn("px-1 py-0.5 sticky left-6 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group", rowBg)} 
+                        className={cn("px-2 py-0.5 sticky left-8 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group w-40", rowBg)} 
                         title={user.full_name}
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <span className="truncate max-w-[80px]">{user.full_name}</span>
+                          <span className="truncate">{user.full_name}</span>
                           <Button
                             variant="ghost"
                             size="sm"
