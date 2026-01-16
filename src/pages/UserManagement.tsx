@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
+import { Users, Shield, UserPlus, Pencil, ChefHat, Calculator, GraduationCap, KeyRound, Loader2, ShieldCheck, Trash2, FolderKey } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { classes } from '@/data/mockData';
 import { UserExcelImport } from '@/components/users/UserExcelImport';
@@ -21,6 +21,8 @@ import { LoginHistory } from '@/components/users/LoginHistory';
 import { PermissionManager } from '@/components/users/PermissionManager';
 import { UserExcelExport } from '@/components/users/UserExcelExport';
 import { FeatureManager } from '@/components/users/FeatureManager';
+import { PermissionGroupManager } from '@/components/users/PermissionGroupManager';
+import { UserGroupAssignment } from '@/components/users/UserGroupAssignment';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -111,6 +113,10 @@ export default function UserManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserWithRoles | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // User group assignment state
+  const [groupAssignmentOpen, setGroupAssignmentOpen] = useState(false);
+  const [groupAssignmentUser, setGroupAssignmentUser] = useState<UserWithRoles | null>(null);
 
   const isAdmin = hasRole('admin');
 
@@ -210,6 +216,11 @@ export default function UserManagement() {
   const handleOpenDeleteUser = (user: UserWithRoles) => {
     setDeletingUser(user);
     setDeleteDialogOpen(true);
+  };
+
+  const handleOpenGroupAssignment = (user: UserWithRoles) => {
+    setGroupAssignmentUser(user);
+    setGroupAssignmentOpen(true);
   };
 
   const handleDeleteUser = async () => {
@@ -560,6 +571,14 @@ export default function UserManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleOpenGroupAssignment(user)}
+                          title="Gán nhóm quyền"
+                        >
+                          <FolderKey className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleOpenPermissions(user)}
                           title="Phân quyền chi tiết"
                         >
@@ -740,6 +759,9 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Permission Group Manager */}
+      <PermissionGroupManager />
+
       {/* Feature Manager - Quản lý danh sách tính năng phân quyền */}
       <FeatureManager />
 
@@ -767,6 +789,17 @@ export default function UserManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* User Group Assignment Dialog */}
+      {groupAssignmentUser && (
+        <UserGroupAssignment
+          userId={groupAssignmentUser.id}
+          userName={groupAssignmentUser.full_name}
+          open={groupAssignmentOpen}
+          onOpenChange={setGroupAssignmentOpen}
+          onSaved={fetchUsers}
+        />
+      )}
 
       {/* Delete User Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
