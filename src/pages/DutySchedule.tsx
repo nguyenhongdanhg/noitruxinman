@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, CalendarDays, List, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, List, Plus, Settings } from 'lucide-react';
 import { useDutySchedule, DutySchedule as DutyScheduleType } from '@/hooks/useDutySchedule';
 import { TodayDutyCard } from '@/components/duty/TodayDutyCard';
 import { DutyCalendarView } from '@/components/duty/DutyCalendarView';
 import { DutyListView } from '@/components/duty/DutyListView';
 import { DutyExcelImport } from '@/components/duty/DutyExcelImport';
 import { AddDutyDialog } from '@/components/duty/AddDutyDialog';
+import { DutyScheduleManager } from '@/components/duty/DutyScheduleManager';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +24,7 @@ import { User } from 'lucide-react';
 
 export default function DutySchedulePage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'manage'>('calendar');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingDuty, setEditingDuty] = useState<DutyScheduleType | null>(null);
   const [selectedDayDialogOpen, setSelectedDayDialogOpen] = useState(false);
@@ -105,8 +107,8 @@ export default function DutySchedulePage() {
           </div>
 
           {/* View mode tabs */}
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'calendar' | 'list')}>
-            <TabsList className="grid w-full max-w-[200px] grid-cols-2">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'calendar' | 'list' | 'manage')}>
+            <TabsList className={cn("grid w-full", canManage ? "max-w-[300px] grid-cols-3" : "max-w-[200px] grid-cols-2")}>
               <TabsTrigger value="calendar" className="flex items-center gap-1">
                 <CalendarDays className="h-4 w-4" />
                 Lịch
@@ -115,6 +117,12 @@ export default function DutySchedulePage() {
                 <List className="h-4 w-4" />
                 Danh sách
               </TabsTrigger>
+              {canManage && (
+                <TabsTrigger value="manage" className="flex items-center gap-1">
+                  <Settings className="h-4 w-4" />
+                  Phân công
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="calendar" className="mt-4">
@@ -137,13 +145,22 @@ export default function DutySchedulePage() {
                   Đang tải...
                 </div>
               ) : (
-                <DutyListView
+              <DutyListView
                   duties={monthDuties}
                   canManage={canManage}
                   onEdit={handleEditDuty}
                 />
               )}
             </TabsContent>
+
+            {canManage && (
+              <TabsContent value="manage" className="mt-4">
+                <DutyScheduleManager
+                  selectedMonth={selectedMonth}
+                  onSaveComplete={() => refetch()}
+                />
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
