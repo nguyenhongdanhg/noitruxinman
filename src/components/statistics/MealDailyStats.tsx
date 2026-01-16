@@ -96,7 +96,7 @@ export function MealDailyStats() {
       const boardingStudents = students.filter(s => s.room);
       const presentCount = totalReported - totalAbsent;
 
-      // Tính thống kê theo mâm
+      // Tính thống kê theo mâm (cho bữa trưa/tối)
       const mealGroupStats: Record<string, { total: number; present: number; absent: number; absentStudents: Array<{ name: string; className: string; permission?: 'P' | 'KP' }> }> = {};
       const mealGroups = [...new Set(boardingStudents.map(s => s.mealGroup).filter(Boolean))];
       
@@ -116,6 +116,29 @@ export function MealDailyStats() {
         };
       });
 
+      // Tính thống kê theo lớp (cho bữa sáng)
+      const classStats: Record<string, { total: number; present: number; absent: number; absentStudents: Array<{ name: string; permission?: 'P' | 'KP' }> }> = {};
+      const classIds = [...new Set(boardingStudents.map(s => s.classId))];
+      
+      classIds.forEach(classId => {
+        const classStudents = boardingStudents.filter(s => s.classId === classId);
+        const absentInClass = absentStudents.filter(a => {
+          const student = boardingStudents.find(s => s.name === a.name && s.classId === classId);
+          return student !== undefined || (a.className === classes.find(c => c.id === classId)?.name);
+        }).filter(a => a.className === classes.find(c => c.id === classId)?.name);
+        const presentInClass = classStudents.length - absentInClass.length;
+        const className = classes.find(c => c.id === classId)?.name || classId;
+        classStats[className] = {
+          total: classStudents.length,
+          present: presentInClass > 0 ? presentInClass : 0,
+          absent: absentInClass.length,
+          absentStudents: absentInClass.map(a => ({
+            name: a.name,
+            permission: a.permission,
+          })),
+        };
+      });
+
       return {
         reportedClasses,
         missingClasses,
@@ -126,6 +149,7 @@ export function MealDailyStats() {
         absentStudents,
         hasReports: mealReports.length > 0,
         mealGroupStats,
+        classStats,
       };
     };
 
@@ -242,6 +266,7 @@ export function MealDailyStats() {
   const renderMealCard = (mealType: 'breakfast' | 'lunch' | 'dinner') => {
     const stats = mealStats[mealType];
     const isComplete = stats.missingClasses.length === 0 && stats.hasReports;
+    const isBreakfast = mealType === 'breakfast';
 
     return (
       <div className="space-y-2 p-3 rounded-lg bg-muted/30 border">
@@ -282,8 +307,45 @@ export function MealDailyStats() {
               </div>
             </div>
 
-            {/* Danh sách vắng theo mâm - dạng danh sách đánh số */}
-            {stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length > 0 && (
+            {/* Bữa sáng: Vắng theo lớp */}
+            {isBreakfast && stats.absentCount > 0 && Object.keys(stats.classStats).length > 0 && (
+              <div className="pt-2 border-t space-y-1.5">
+                <p className="text-xs font-semibold text-destructive">
+                  Vắng theo lớp ({stats.absentCount}):
+                </p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {Object.entries(stats.classStats)
+                    .filter(([_, data]) => data.absent > 0)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([className, data]) => (
+                      <div key={className} className="bg-destructive/5 rounded p-1.5">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="font-semibold text-destructive">{className}</span>
+                          <span className="text-amber-700 bg-amber-100 px-1.5 rounded text-[10px]">
+                            {data.present}/{data.total}
+                          </span>
+                        </div>
+                        <ol className="list-decimal list-inside text-[10px] space-y-0.5 text-muted-foreground">
+                          {data.absentStudents.map((s, idx) => (
+                            <li key={idx}>
+                              <span className="font-medium text-foreground">{s.name}</span>
+                              <span className={cn(
+                                "ml-1 px-1 rounded",
+                                s.permission === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                              )}>
+                                {s.permission === 'P' ? 'P' : 'KP'}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bữa trưa/tối: Vắng theo mâm */}
+            {!isBreakfast && stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length > 0 && (
               <div className="pt-2 border-t space-y-1.5">
                 <p className="text-xs font-semibold text-destructive">
                   Vắng theo mâm ({stats.absentCount}):
@@ -292,7 +354,7 @@ export function MealDailyStats() {
                   {Object.entries(stats.mealGroupStats)
                     .filter(([_, data]) => data.absent > 0)
                     .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([group, data], groupIdx) => (
+                    .map(([group, data]) => (
                       <div key={group} className="bg-destructive/5 rounded p-1.5">
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="font-semibold text-destructive">Mâm {group}</span>
@@ -320,8 +382,10 @@ export function MealDailyStats() {
               </div>
             )}
 
-            {/* Danh sách vắng không có mâm - dạng danh sách đánh số */}
-            {stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length === 0 && (
+            {/* Fallback: Danh sách vắng không có mâm/lớp */}
+            {stats.absentCount > 0 && 
+              ((isBreakfast && Object.keys(stats.classStats).length === 0) || 
+               (!isBreakfast && Object.keys(stats.mealGroupStats).length === 0)) && (
               <div className="pt-2 border-t">
                 <p className="text-xs font-semibold text-destructive mb-1">
                   Vắng ({stats.absentCount}):
@@ -408,29 +472,31 @@ export function MealDailyStats() {
             </div>
           </div>
 
-          {/* Tổng hợp */}
+          {/* Tổng hợp theo bữa */}
           <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+              <p className="text-2xl font-bold text-orange-700">
+                {mealStats.breakfast.presentCount}
+              </p>
+              <p className="text-xs text-orange-600">
+                Tổng sáng <span className="text-red-500">(vắng {mealStats.breakfast.absentCount})</span>
+              </p>
+            </div>
             <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
               <p className="text-2xl font-bold text-blue-700">
-                {mealStats.breakfast.presentCount + mealStats.lunch.presentCount + mealStats.dinner.presentCount}
+                {mealStats.lunch.presentCount}
               </p>
-              <p className="text-xs text-blue-600">Tổng lượt ăn</p>
+              <p className="text-xs text-blue-600">
+                Tổng trưa <span className="text-red-500">(vắng {mealStats.lunch.absentCount})</span>
+              </p>
             </div>
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-              <p className="text-2xl font-bold text-red-700">
-                {mealStats.breakfast.absentCount + mealStats.lunch.absentCount + mealStats.dinner.absentCount}
+            <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
+              <p className="text-2xl font-bold text-purple-700">
+                {mealStats.dinner.presentCount}
               </p>
-              <p className="text-xs text-red-600">Tổng lượt vắng</p>
-            </div>
-            <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-              <p className="text-2xl font-bold text-green-700">
-                {classes.length - Math.max(
-                  mealStats.breakfast.missingClasses.length,
-                  mealStats.lunch.missingClasses.length,
-                  mealStats.dinner.missingClasses.length
-                )}
+              <p className="text-xs text-purple-600">
+                Tổng tối <span className="text-red-500">(vắng {mealStats.dinner.absentCount})</span>
               </p>
-              <p className="text-xs text-green-600">Lớp báo đủ</p>
             </div>
           </div>
         </div>
