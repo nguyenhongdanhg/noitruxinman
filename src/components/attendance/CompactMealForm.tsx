@@ -26,6 +26,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -446,10 +447,11 @@ export function CompactMealForm({ filterClassId }: CompactMealFormProps) {
                 </span>
               </div>
 
-              {/* Student grid - compact, names only */}
+              {/* Student grid - compact with ScrollArea */}
               <Card className={expired ? 'opacity-60' : ''}>
                 <CardContent className="py-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5 max-h-[300px] overflow-y-auto">
+                  <ScrollArea className="h-[280px] sm:h-[320px] pr-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
                     {filteredStudents.map((student) => {
                       const isAbsent = absentSet.has(student.id);
                       return (
@@ -477,6 +479,7 @@ export function CompactMealForm({ filterClassId }: CompactMealFormProps) {
                       );
                     })}
                   </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
 

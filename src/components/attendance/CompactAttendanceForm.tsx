@@ -25,6 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -506,32 +507,34 @@ export function CompactAttendanceForm({ type, title, filterClassId }: CompactAtt
                 </div>
               )}
               
-              {/* Student grid - Compact, only names */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                {displayStudents.map((student) => {
-                  const isAbsent = absentStudentIds.has(student.id);
-                  return (
-                    <div
-                      key={student.id}
-                      className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer active:scale-[0.98] ${
-                        isAbsent
-                          ? 'bg-destructive/10 border-destructive/40'
-                          : 'bg-muted/30 border-border hover:bg-muted/50'
-                      }`}
-                      onClick={() => toggleAbsent(student.id)}
-                    >
-                      <Checkbox
-                        checked={isAbsent}
-                        onCheckedChange={() => toggleAbsent(student.id)}
-                        className="h-4 w-4"
-                      />
-                      <span className={`text-sm truncate ${isAbsent ? 'text-destructive font-medium' : ''}`}>
-                        {student.name}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Student grid - Compact, only names with ScrollArea */}
+              <ScrollArea className="h-[280px] sm:h-[320px] pr-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                  {displayStudents.map((student) => {
+                    const isAbsent = absentStudentIds.has(student.id);
+                    return (
+                      <div
+                        key={student.id}
+                        className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer active:scale-[0.98] ${
+                          isAbsent
+                            ? 'bg-destructive/10 border-destructive/40'
+                            : 'bg-muted/30 border-border hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleAbsent(student.id)}
+                      >
+                        <Checkbox
+                          checked={isAbsent}
+                          onCheckedChange={() => toggleAbsent(student.id)}
+                          className="h-4 w-4"
+                        />
+                        <span className={`text-sm truncate ${isAbsent ? 'text-destructive font-medium' : ''}`}>
+                          {student.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             </CardContent>
           </CollapsibleContent>
         </Card>
