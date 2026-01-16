@@ -12,7 +12,9 @@ export interface DbStudent {
   meal_group: string | null;
   gender: string | null;
   parent_phone: string | null;
+  phone: string | null;
   address: string | null;
+  cccd: string | null;
   is_boarding: boolean;
   created_at: string;
   updated_at: string;
@@ -28,7 +30,9 @@ export interface Student {
   mealGroup: string;
   gender?: string;
   parentPhone?: string;
+  phone?: string;
   address?: string;
+  cccd?: string;
   isBoarding?: boolean;
 }
 
@@ -43,7 +47,9 @@ function dbToAppStudent(dbStudent: DbStudent): Student {
     mealGroup: dbStudent.meal_group || 'M1',
     gender: dbStudent.gender || undefined,
     parentPhone: dbStudent.parent_phone || undefined,
+    phone: dbStudent.phone || undefined,
     address: dbStudent.address || undefined,
+    cccd: dbStudent.cccd || undefined,
     isBoarding: dbStudent.is_boarding,
   };
 }
@@ -57,7 +63,9 @@ interface DbStudentInsert {
   meal_group?: string | null;
   gender?: string | null;
   parent_phone?: string | null;
+  phone?: string | null;
   address?: string | null;
+  cccd?: string | null;
   is_boarding?: boolean;
 }
 
@@ -70,7 +78,9 @@ interface DbStudentUpdate {
   meal_group?: string | null;
   gender?: string | null;
   parent_phone?: string | null;
+  phone?: string | null;
   address?: string | null;
+  cccd?: string | null;
   is_boarding?: boolean;
 }
 
@@ -84,7 +94,9 @@ function appToDbStudentInsert(student: Omit<Student, 'id'>): DbStudentInsert {
     meal_group: student.mealGroup || 'M1',
     gender: student.gender || null,
     parent_phone: student.parentPhone || null,
+    phone: student.phone || null,
     address: student.address || null,
+    cccd: student.cccd || null,
     is_boarding: student.isBoarding || false,
   };
 }
@@ -100,7 +112,9 @@ function appToDbStudentUpdate(student: Partial<Student>): DbStudentUpdate {
   if (student.mealGroup !== undefined) result.meal_group = student.mealGroup || null;
   if (student.gender !== undefined) result.gender = student.gender;
   if (student.parentPhone !== undefined) result.parent_phone = student.parentPhone;
+  if (student.phone !== undefined) result.phone = student.phone;
   if (student.address !== undefined) result.address = student.address;
+  if (student.cccd !== undefined) result.cccd = student.cccd;
   if (student.isBoarding !== undefined) result.is_boarding = student.isBoarding;
   
   return result;
