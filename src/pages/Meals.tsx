@@ -1,13 +1,16 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MealAttendanceForm } from '@/components/attendance/MealAttendanceForm';
+import { CompactMealForm } from '@/components/attendance/CompactMealForm';
 import { ReportHistory } from '@/components/reports/ReportHistory';
 import { Card, CardContent } from '@/components/ui/card';
-import { Utensils, FileText, Clock, AlertCircle, Shield } from 'lucide-react';
+import { Utensils, FileText, Clock, AlertCircle, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classes } from '@/data/mockData';
+import { useState } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export default function Meals() {
   const { profile, hasRole } = useAuth();
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const now = new Date();
   const currentHour = now.getHours();
   
@@ -36,70 +39,57 @@ export default function Meals() {
         </p>
       </div>
 
-      {/* Role Info Card */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="py-3 sm:pt-6">
-          <div className="flex items-center gap-2 mb-1 sm:mb-2">
-            <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            <h3 className="font-semibold text-sm sm:text-base text-foreground">Quyền truy cập</h3>
-          </div>
-          {isAdmin ? (
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Bạn là <strong>Quản trị viên</strong> - có thể báo cơm cho tất cả các lớp.
-            </p>
-          ) : isClassTeacher && teacherClassName ? (
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Bạn là <strong>GVCN lớp {teacherClassName}</strong> - chỉ có thể báo cơm cho lớp của mình.
-            </p>
-          ) : (
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Vui lòng liên hệ quản trị viên để được phân quyền.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Deadline Info */}
-      <Card>
-        <CardContent className="py-3 sm:pt-6">
-          <div className="flex items-center gap-2 mb-3 sm:mb-4">
-            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            <h3 className="font-semibold text-sm sm:text-base text-foreground">Thời hạn đăng ký</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-            {mealDeadlines.map((item) => (
-              <div
-                key={item.meal}
-                className={`p-2.5 sm:p-4 rounded-lg border ${
-                  item.canRegister
-                    ? 'bg-success/5 border-success/20'
-                    : 'bg-destructive/5 border-destructive/20'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                  <span className="font-medium text-sm sm:text-base text-foreground">{item.meal}</span>
-                  {item.canRegister ? (
-                    <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-success/10 text-success">
-                      Đăng ký được
-                    </span>
-                  ) : (
-                    <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-destructive/10 text-destructive">
-                      Hết hạn
-                    </span>
-                  )}
+      {/* Collapsible Info Section */}
+      <Collapsible open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+        <Card className="border-primary/20 bg-primary/5">
+          <CollapsibleTrigger asChild>
+            <CardContent className="py-2 cursor-pointer hover:bg-primary/10 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm text-foreground">
+                    {isAdmin ? 'Quản trị viên' : isClassTeacher && teacherClassName ? `GVCN lớp ${teacherClassName}` : 'Chưa phân quyền'}
+                  </span>
+                  <span className="text-muted-foreground text-xs">• Nhấn để xem chi tiết</span>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground">{item.deadline}</p>
+                {isInfoOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </div>
-            ))}
-          </div>
-          <div className="mt-3 sm:mt-4 p-2 sm:p-3 rounded-lg bg-muted/50 flex items-start gap-2">
-            <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              <strong>Lưu ý:</strong> Mỗi bữa ăn trưa và tối tính 0.2kg gạo/HS.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0 pb-3">
+              {/* Deadline Info */}
+              <div className="mt-2 pt-2 border-t">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <h3 className="font-medium text-sm text-foreground">Thời hạn đăng ký</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {mealDeadlines.map((item) => (
+                    <div
+                      key={item.meal}
+                      className={`p-2 rounded-lg border text-center ${
+                        item.canRegister
+                          ? 'bg-success/5 border-success/20'
+                          : 'bg-destructive/5 border-destructive/20'
+                      }`}
+                    >
+                      <span className="font-medium text-xs">{item.meal}</span>
+                      <span className={`ml-1 text-[10px] ${item.canRegister ? 'text-success' : 'text-destructive'}`}>
+                        {item.canRegister ? '✓' : '✗'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <AlertCircle className="h-3 w-3 inline mr-1" />
+                  Mỗi bữa trưa/tối tính 0.2kg gạo/HS
+                </p>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <Tabs defaultValue="attendance" className="w-full">
         <TabsList className="grid w-full grid-cols-2 h-auto">
@@ -115,8 +105,8 @@ export default function Meals() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="attendance" className="mt-4 sm:mt-6">
-          <MealAttendanceForm 
+        <TabsContent value="attendance" className="mt-3">
+          <CompactMealForm 
             filterClassId={isAdmin ? undefined : teacherClassId || undefined}
           />
         </TabsContent>
