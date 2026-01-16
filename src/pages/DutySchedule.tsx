@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { format, addMonths, subMonths } from 'date-fns';
+import { format, addMonths, subMonths, subDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,11 +30,15 @@ export default function DutySchedulePage() {
   const [selectedDayDialogOpen, setSelectedDayDialogOpen] = useState(false);
   const [selectedDayInfo, setSelectedDayInfo] = useState<{ date: Date; duties: DutyScheduleType[] } | null>(null);
 
-  const { todayDuty, isLoadingToday, useDutyByMonth, canManage } = useDutySchedule();
+  const { todayDuty, isLoadingToday, useDutyByMonth, useDutyByDate, canManage } = useDutySchedule();
   const { data: monthDuties = [], isLoading: isLoadingMonth, refetch } = useDutyByMonth(
     selectedMonth.getFullYear(),
     selectedMonth.getMonth() + 1
   );
+
+  // Lấy ca trực ngày hôm qua để hiển thị nếu trước 6h sáng
+  const yesterday = subDays(new Date(), 1);
+  const { data: previousDayDuties } = useDutyByDate(yesterday);
 
   const handlePrevMonth = () => setSelectedMonth(subMonths(selectedMonth, 1));
   const handleNextMonth = () => setSelectedMonth(addMonths(selectedMonth, 1));
@@ -61,7 +65,11 @@ export default function DutySchedulePage() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       {/* Today's duty card */}
-      <TodayDutyCard duties={todayDuty} isLoading={isLoadingToday} />
+      <TodayDutyCard 
+        duties={todayDuty} 
+        previousDayDuties={previousDayDuties} 
+        isLoading={isLoadingToday} 
+      />
 
       {/* Main schedule card */}
       <Card>
