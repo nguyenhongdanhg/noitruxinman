@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, Save, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDutySchedule, DutySchedule } from '@/hooks/useDutySchedule';
 import { useQuery } from '@tanstack/react-query';
@@ -202,6 +203,51 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     return selections[teacherName]?.size || 0;
   };
 
+  // Calculate warnings
+  const warnings = useMemo(() => {
+    const result: {
+      noAssignment: string[];
+      tooMany: string[];
+      lowStaffDays: number[];
+    } = {
+      noAssignment: [],
+      tooMany: [],
+      lowStaffDays: [],
+    };
+
+    // Check users with no assignment or too many
+    users.forEach(user => {
+      const count = selections[user.full_name]?.size || 0;
+      if (count === 0) {
+        result.noAssignment.push(user.full_name);
+      } else if (count > 5) {
+        result.tooMany.push(user.full_name);
+      }
+    });
+
+    // Check days with less than 3 people
+    for (let day = 1; day <= daysInMonth; day++) {
+      let staffCount = 0;
+      Object.values(selections).forEach(days => {
+        if (days.has(day)) staffCount++;
+      });
+      if (staffCount > 0 && staffCount < 3) {
+        result.lowStaffDays.push(day);
+      }
+    }
+
+    return result;
+  }, [selections, users, daysInMonth]);
+
+  // Count staff per day for display
+  const getStaffCountForDay = (day: number) => {
+    let count = 0;
+    Object.values(selections).forEach(days => {
+      if (days.has(day)) count++;
+    });
+    return count;
+  };
+
   if (isLoadingUsers) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -235,20 +281,51 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
         </div>
       </CardHeader>
       
-      <CardContent>
+      <CardContent className="space-y-3">
+        {/* Warnings */}
+        {(warnings.noAssignment.length > 0 || warnings.tooMany.length > 0 || warnings.lowStaffDays.length > 0) && (
+          <div className="space-y-2">
+            {warnings.noAssignment.length > 0 && (
+              <Alert variant="default" className="py-2 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                <Info className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-xs text-amber-700 dark:text-amber-400">
+                  <strong>Chưa phân công:</strong> {warnings.noAssignment.slice(0, 5).join(', ')}
+                  {warnings.noAssignment.length > 5 && ` và ${warnings.noAssignment.length - 5} người khác`}
+                </AlertDescription>
+              </Alert>
+            )}
+            {warnings.tooMany.length > 0 && (
+              <Alert variant="default" className="py-2 border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-xs text-orange-700 dark:text-orange-400">
+                  <strong>Trực quá 5 lần:</strong> {warnings.tooMany.join(', ')}
+                </AlertDescription>
+              </Alert>
+            )}
+            {warnings.lowStaffDays.length > 0 && (
+              <Alert variant="destructive" className="py-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Thiếu người (cần ít nhất 3):</strong> Ngày {warnings.lowStaffDays.join(', ')}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
         <ScrollArea className="w-full">
           <div className="min-w-max">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="p-2 text-left font-medium sticky left-0 bg-muted/50 z-10 min-w-[40px]">STT</th>
-                  <th className="p-2 text-left font-medium sticky left-[40px] bg-muted/50 z-10 min-w-[150px]">Họ và tên</th>
-                  <th className="p-2 text-center font-medium min-w-[40px]">SL</th>
+                  <th className="px-1 py-1 text-left font-medium sticky left-0 bg-muted/50 z-10 w-8">#</th>
+                  <th className="px-1 py-1 text-left font-medium sticky left-8 bg-muted/50 z-10 min-w-[100px] max-w-[120px]">Họ tên</th>
+                  <th className="px-1 py-1 text-center font-medium w-7">SL</th>
                   {dayHeaders.map(({ day, isSunday }) => (
                     <th
                       key={day}
                       className={cn(
-                        "p-1 text-center font-medium min-w-[32px]",
+                        "px-0.5 py-1 text-center font-medium w-6",
                         isSunday && "text-destructive bg-destructive/10"
                       )}
                     >
@@ -256,15 +333,15 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     </th>
                   ))}
                 </tr>
-                <tr className="border-b text-xs text-muted-foreground">
+                <tr className="border-b text-[10px] text-muted-foreground">
                   <td className="sticky left-0 bg-background"></td>
-                  <td className="sticky left-[40px] bg-background"></td>
+                  <td className="sticky left-8 bg-background"></td>
                   <td></td>
                   {dayHeaders.map(({ day, isSunday, label }) => (
                     <td
                       key={day}
                       className={cn(
-                        "p-1 text-center",
+                        "px-0.5 text-center",
                         isSunday && "text-destructive bg-destructive/10"
                       )}
                     >
@@ -272,24 +349,59 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     </td>
                   ))}
                 </tr>
+                {/* Staff count row */}
+                <tr className="border-b bg-muted/30 text-[10px]">
+                  <td className="sticky left-0 bg-muted/30"></td>
+                  <td className="sticky left-8 bg-muted/30 px-1 font-medium text-muted-foreground">Số người</td>
+                  <td></td>
+                  {dayHeaders.map(({ day, isSunday }) => {
+                    const staffCount = getStaffCountForDay(day);
+                    const isLow = staffCount > 0 && staffCount < 3;
+                    return (
+                      <td
+                        key={day}
+                        className={cn(
+                          "px-0.5 text-center font-medium",
+                          isSunday && "bg-destructive/5",
+                          isLow && "text-destructive",
+                          staffCount >= 3 && "text-green-600"
+                        )}
+                      >
+                        {staffCount > 0 && staffCount}
+                      </td>
+                    );
+                  })}
+                </tr>
               </thead>
               <tbody>
                 {users.map((user, index) => {
                   const dutyCount = getDutyCount(user.full_name);
+                  const hasNoAssignment = dutyCount === 0;
+                  const hasTooMany = dutyCount > 5;
                   return (
-                    <tr key={user.id} className="border-b hover:bg-muted/30">
-                      <td className="p-2 text-center sticky left-0 bg-background z-10">
+                    <tr 
+                      key={user.id} 
+                      className={cn(
+                        "border-b hover:bg-muted/30",
+                        hasNoAssignment && "bg-amber-50/50 dark:bg-amber-950/10",
+                        hasTooMany && "bg-orange-50/50 dark:bg-orange-950/10"
+                      )}
+                    >
+                      <td className="px-1 py-0.5 text-center sticky left-0 bg-inherit z-10 text-muted-foreground">
                         {index + 1}
                       </td>
-                      <td className="p-2 sticky left-[40px] bg-background z-10 whitespace-nowrap">
+                      <td className="px-1 py-0.5 sticky left-8 bg-inherit z-10 truncate max-w-[120px]" title={user.full_name}>
                         {user.full_name}
                       </td>
-                      <td className="p-2 text-center font-medium">
-                        {dutyCount > 0 && (
-                          <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-primary/10 text-primary text-xs">
-                            {dutyCount}
-                          </span>
-                        )}
+                      <td className="px-1 py-0.5 text-center">
+                        <span className={cn(
+                          "inline-flex items-center justify-center h-4 min-w-[16px] px-0.5 rounded text-[10px] font-medium",
+                          dutyCount === 0 && "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+                          dutyCount > 0 && dutyCount <= 5 && "bg-primary/10 text-primary",
+                          dutyCount > 5 && "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+                        )}>
+                          {dutyCount}
+                        </span>
                       </td>
                       {dayHeaders.map(({ day, isSunday }) => {
                         const isChecked = selections[user.full_name]?.has(day) || false;
@@ -297,14 +409,14 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                           <td
                             key={day}
                             className={cn(
-                              "p-1 text-center",
+                              "px-0.5 py-0.5 text-center",
                               isSunday && "bg-destructive/5"
                             )}
                           >
                             <Checkbox
                               checked={isChecked}
                               onCheckedChange={() => toggleSelection(user.full_name, day)}
-                              className="mx-auto"
+                              className="h-4 w-4"
                             />
                           </td>
                         );
