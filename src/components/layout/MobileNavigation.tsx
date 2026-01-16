@@ -17,9 +17,9 @@ export function MobileNavigation() {
 
   // Main navigation items for bottom bar (max 5 items)
   const mainNavItems = [
-    { icon: LayoutDashboard, label: 'Tổng quan', path: '/', show: true },
-    { icon: BookOpen, label: 'Tự học', path: '/evening-study', show: canAccessAttendance() },
+    { icon: LayoutDashboard, label: 'Bảng tin', path: '/', show: true },
     { icon: Home, label: 'Nội trú', path: '/boarding', show: canAccessAttendance() },
+    { icon: BookOpen, label: 'Giờ học', path: '/evening-study', show: canAccessAttendance() },
     { icon: Utensils, label: 'Bữa ăn', path: '/meals', show: canAccessMeals() },
     { icon: Menu, label: 'Thêm', path: '/menu', show: true },
   ];
