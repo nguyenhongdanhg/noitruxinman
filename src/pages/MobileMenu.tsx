@@ -21,11 +21,11 @@ export default function MobileMenu() {
   const isAdmin = hasRole('admin');
 
   const menuItems = [
-    { icon: Users, label: 'Danh sách học sinh', path: '/students', show: true },
     { icon: CalendarClock, label: 'Lịch trực', path: '/duty-schedule', show: true },
-    { icon: BarChart3, label: 'Thống kê tổng hợp', path: '/statistics', show: true },
+    { icon: Users, label: 'Thông tin học sinh', path: '/students', show: true },
+    { icon: BarChart3, label: 'Thống kê', path: '/statistics', show: true },
     { icon: UserCog, label: 'Quản lý tài khoản', path: '/users', show: isAdmin },
-    { icon: Settings, label: 'Cài đặt hệ thống', path: '/settings', show: true },
+    { icon: Settings, label: 'Cài đặt', path: '/settings', show: true },
   ];
 
   const visibleMenuItems = menuItems.filter(item => item.show);

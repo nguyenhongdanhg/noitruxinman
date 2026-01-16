@@ -31,12 +31,12 @@ export function Sidebar() {
   const isAdmin = hasRole('admin');
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Tổng quan', path: '/', show: true },
-    { icon: Users, label: 'Học sinh', path: '/students', show: true },
-    { icon: BookOpen, label: 'Điểm danh tự học', path: '/evening-study', show: canAccessAttendance() },
-    { icon: Home, label: 'Điểm danh nội trú', path: '/boarding', show: canAccessAttendance() },
-    { icon: Utensils, label: 'Báo cáo bữa ăn', path: '/meals', show: canAccessMeals() },
+    { icon: LayoutDashboard, label: 'Bảng tin', path: '/', show: true },
     { icon: CalendarClock, label: 'Lịch trực', path: '/duty-schedule', show: true },
+    { icon: Users, label: 'Thông tin học sinh', path: '/students', show: true },
+    { icon: Home, label: 'Điểm danh nội trú', path: '/boarding', show: canAccessAttendance() },
+    { icon: BookOpen, label: 'Điểm danh giờ học', path: '/evening-study', show: canAccessAttendance() },
+    { icon: Utensils, label: 'Báo cáo bữa ăn', path: '/meals', show: canAccessMeals() },
     { icon: BarChart3, label: 'Thống kê', path: '/statistics', show: true },
     { icon: UserCog, label: 'Quản lý tài khoản', path: '/users', show: isAdmin },
     { icon: Settings, label: 'Cài đặt', path: '/settings', show: true },
