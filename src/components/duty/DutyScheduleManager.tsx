@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy } from 'lucide-react';
+import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDutySchedule, DutySchedule } from '@/hooks/useDutySchedule';
 import { useQuery } from '@tanstack/react-query';
@@ -49,8 +49,11 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
   const month = selectedMonth.getMonth() + 1;
   const daysInMonth = getDaysInMonth(selectedMonth);
   
-  // Hidden users state
+  // Hidden users state (ẩn tạm thời trong dropdown)
   const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
+  
+  // Removed users state (xóa khỏi danh sách phân công, có thể phục hồi)
+  const [removedUsers, setRemovedUsers] = useState<Set<string>>(new Set());
   
   // Fetch existing duties for this month
   const { data: existingDuties = [] } = useDutyByMonth(year, month);
@@ -78,10 +81,15 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     },
   });
 
-  // Filter visible users
+  // Filter visible users (exclude both hidden and removed)
   const visibleUsers = useMemo(() => {
-    return users.filter(user => !hiddenUsers.has(user.id));
-  }, [users, hiddenUsers]);
+    return users.filter(user => !hiddenUsers.has(user.id) && !removedUsers.has(user.id));
+  }, [users, hiddenUsers, removedUsers]);
+  
+  // Users that have been removed (for restore list)
+  const removedUsersList = useMemo(() => {
+    return users.filter(user => removedUsers.has(user.id));
+  }, [users, removedUsers]);
 
   // Build initial selections from existing duties
   const initialSelections = useMemo(() => {
@@ -148,6 +156,44 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
 
   const showAllUsers = () => {
     setHiddenUsers(new Set());
+  };
+
+  // Remove user from duty list (not from system)
+  const removeUserFromDutyList = (userId: string, userName: string) => {
+    setRemovedUsers(prev => {
+      const next = new Set(prev);
+      next.add(userId);
+      return next;
+    });
+    // Also clear their selections
+    setSelections(prev => {
+      const next = { ...prev };
+      delete next[userName];
+      return next;
+    });
+    toast({
+      title: 'Đã xóa khỏi danh sách',
+      description: `${userName} đã được xóa khỏi danh sách phân công trực.`,
+    });
+  };
+
+  // Restore a removed user
+  const restoreUser = (userId: string) => {
+    setRemovedUsers(prev => {
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
+    });
+  };
+
+  // Reload all users from account list
+  const reloadFromAccountList = () => {
+    setRemovedUsers(new Set());
+    setHiddenUsers(new Set());
+    toast({
+      title: 'Đã tải lại danh sách',
+      description: 'Danh sách phân công đã được cập nhật từ danh sách tài khoản.',
+    });
   };
 
   // Copy from previous month function
@@ -356,6 +402,75 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
           </CardTitle>
           
           <div className="flex flex-wrap gap-2">
+            {/* Reload from account list button */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Tải lại DS</span>
+                  <span className="sm:hidden">Tải lại</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tải lại danh sách</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có muốn tải lại danh sách từ danh sách tài khoản? Tất cả người đã xóa sẽ được phục hồi.
+                    {removedUsers.size > 0 && (
+                      <span className="block mt-2 text-foreground font-medium">
+                        Có {removedUsers.size} người sẽ được thêm lại.
+                      </span>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction onClick={reloadFromAccountList}>
+                    Tải lại
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Restore removed users dropdown */}
+            {removedUsers.size > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive border-destructive/50">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Đã xóa {removedUsers.size}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-auto bg-background">
+                  <DropdownMenuLabel>Người đã xóa</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full justify-start text-xs" 
+                    onClick={reloadFromAccountList}
+                  >
+                    Phục hồi tất cả
+                  </Button>
+                  <DropdownMenuSeparator />
+                  {removedUsersList.map(user => (
+                    <div key={user.id} className="flex items-center justify-between px-2 py-1.5 text-xs">
+                      <span className="truncate">{user.full_name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => restoreUser(user.id)}
+                      >
+                        Phục hồi
+                      </Button>
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Hide/show users dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -373,7 +488,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-auto bg-background">
-                <DropdownMenuLabel>Ẩn người trực</DropdownMenuLabel>
+                <DropdownMenuLabel>Ẩn người trực (tạm thời)</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {hiddenUsers.size > 0 && (
                   <>
@@ -388,7 +503,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     <DropdownMenuSeparator />
                   </>
                 )}
-                {users.map(user => (
+                {users.filter(u => !removedUsers.has(u.id)).map(user => (
                   <DropdownMenuCheckboxItem
                     key={user.id}
                     checked={hiddenUsers.has(user.id)}
@@ -571,10 +686,21 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                         {index + 1}
                       </td>
                       <td 
-                        className={cn("px-1 py-0.5 sticky left-6 z-20 truncate max-w-[96px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]", rowBg)} 
+                        className={cn("px-1 py-0.5 sticky left-6 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group", rowBg)} 
                         title={user.full_name}
                       >
-                        {user.full_name}
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="truncate max-w-[80px]">{user.full_name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                            onClick={() => removeUserFromDutyList(user.id, user.full_name)}
+                            title="Xóa khỏi danh sách"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </td>
                       <td className="px-1 py-0.5 text-center">
                         <span className={cn(
