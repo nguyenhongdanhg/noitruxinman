@@ -586,7 +586,7 @@ export default function UserManagement() {
                     <TableCell>{user.phone || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {user.permission_groups.length > 0 ? (
+                        {(user.permission_groups ?? []).length > 0 ? (
                           user.permission_groups.map((group) => (
                             <Badge key={group.id} variant="secondary">
                               {group.name}
