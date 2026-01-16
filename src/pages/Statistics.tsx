@@ -16,6 +16,7 @@ import { format, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfW
 import { vi } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { StatsSummaryCard } from '@/components/statistics/StatsSummaryCard';
+import { MealDailyStats } from '@/components/statistics/MealDailyStats';
 import * as XLSX from 'xlsx';
 import { Report } from '@/types';
 import { exportMealExcelSchoolFormatted, exportMealExcelClassFormatted } from '@/utils/excelExport';
@@ -625,6 +626,9 @@ export default function Statistics() {
         </TabsContent>
 
         <TabsContent value="meals" className="mt-4 space-y-4">
+          {/* Daily Meal Stats */}
+          <MealDailyStats />
+
           {/* Excel Export Controls */}
           <Card>
             <CardHeader className="pb-3">

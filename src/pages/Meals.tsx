@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompactMealForm } from '@/components/attendance/CompactMealForm';
 import { ReportHistory } from '@/components/reports/ReportHistory';
+import { MealReportReminder } from '@/components/meals/MealReportReminder';
 import { Card, CardContent } from '@/components/ui/card';
 import { Utensils, FileText, Clock, AlertCircle, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +39,9 @@ export default function Meals() {
           Đăng ký và quản lý bữa ăn cho học sinh nội trú
         </p>
       </div>
+
+      {/* Meal Report Reminder for Class Teachers */}
+      <MealReportReminder />
 
       {/* Collapsible Info Section */}
       <Collapsible open={isInfoOpen} onOpenChange={setIsInfoOpen}>
