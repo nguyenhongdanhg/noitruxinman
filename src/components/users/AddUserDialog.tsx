@@ -76,7 +76,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
       }
 
       const userId = authData.user.id;
-      const classId = selectedClass || null;
+      const classId = selectedClass && selectedClass !== '_none' ? selectedClass : null;
 
       // Update profile
       const { error: profileError } = await supabase
@@ -174,7 +174,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
                 <SelectValue placeholder="Chọn lớp" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Không chọn</SelectItem>
+                <SelectItem value="_none">Không chọn</SelectItem>
                 {classes.map((cls) => (
                   <SelectItem key={cls.id} value={cls.id}>
                     {cls.name}
