@@ -40,6 +40,30 @@ interface UserProfile {
   full_name: string;
 }
 
+const DUTY_LIST_STORAGE_KEY = 'duty-schedule-user-list';
+
+// Load saved duty list from localStorage
+const loadSavedDutyList = (): UserProfile[] => {
+  try {
+    const saved = localStorage.getItem(DUTY_LIST_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error loading saved duty list:', e);
+  }
+  return [];
+};
+
+// Save duty list to localStorage
+const saveDutyList = (users: UserProfile[]) => {
+  try {
+    localStorage.setItem(DUTY_LIST_STORAGE_KEY, JSON.stringify(users));
+  } catch (e) {
+    console.error('Error saving duty list:', e);
+  }
+};
+
 export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutyScheduleManagerProps) {
   const { toast } = useToast();
   const { bulkAddDuty, isBulkAdding, useDutyByMonth } = useDutySchedule();
@@ -48,14 +72,11 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
   const month = selectedMonth.getMonth() + 1;
   const daysInMonth = getDaysInMonth(selectedMonth);
   
-  // State to control whether user list has been loaded
-  const [isListLoaded, setIsListLoaded] = useState(false);
-  
   // Hidden users state (ẩn tạm thời trong dropdown)
   const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
   
-  // Active duty list users (only users that are in the duty list)
-  const [dutyListUsers, setDutyListUsers] = useState<UserProfile[]>([]);
+  // Active duty list users (only users that are in the duty list) - load from localStorage on init
+  const [dutyListUsers, setDutyListUsers] = useState<UserProfile[]>(() => loadSavedDutyList());
   
   // Fetch existing duties for this month
   const { data: existingDuties = [] } = useDutyByMonth(year, month);
@@ -155,9 +176,13 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     setHiddenUsers(new Set());
   };
 
-  // Remove user from duty list (not from system)
+  // Remove user from duty list (not from system) and save
   const removeUserFromDutyList = (userId: string, userName: string) => {
-    setDutyListUsers(prev => prev.filter(u => u.id !== userId));
+    setDutyListUsers(prev => {
+      const newList = prev.filter(u => u.id !== userId);
+      saveDutyList(newList);
+      return newList;
+    });
     // Also clear their selections
     setSelections(prev => {
       const next = { ...prev };
@@ -170,11 +195,12 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     });
   };
 
-  // Load all users from account list
+  // Load all users from account list and save
   const loadFromAccountList = () => {
-    setDutyListUsers([...allUsers]);
+    const newList = [...allUsers];
+    setDutyListUsers(newList);
+    saveDutyList(newList);
     setHiddenUsers(new Set());
-    setIsListLoaded(true);
     // Initialize selections for new users
     setSelections(prev => {
       const next = { ...prev };
@@ -395,8 +421,8 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     );
   }
 
-  // Show empty state with load button if list not loaded
-  if (!isListLoaded && dutyListUsers.length === 0) {
+  // Show empty state with load button if list is empty
+  if (dutyListUsers.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -767,15 +793,6 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
           </div>
         )}
         
-        {dutyListUsers.length === 0 && isListLoaded && (
-          <div className="text-center py-8 text-muted-foreground">
-            <p className="mb-2">Danh sách trống.</p>
-            <Button variant="outline" size="sm" onClick={loadFromAccountList}>
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Tải lại từ tài khoản
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
