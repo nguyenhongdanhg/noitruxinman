@@ -3,21 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { 
   Users, GraduationCap, Home, Utensils, BookOpen, Calendar, School, 
-  CheckCircle2, Clock, AlertCircle, TrendingUp
+  CheckCircle2, Clock, AlertCircle, TrendingUp, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { MealReportReminder } from '@/components/meals/MealReportReminder';
+import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
   const { students, teachers, classes, reports, schoolInfo } = useApp();
@@ -28,13 +22,11 @@ export default function Dashboard() {
 
   // Get latest reports for each type (school-wide)
   const latestStats = useMemo(() => {
-    // Evening study - latest report
     const eveningStudyReports = reports.filter(r => r.type === 'evening_study').sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
     const latestEveningStudy = eveningStudyReports[0];
 
-    // Boarding - latest reports by session
     const boardingReports = reports.filter(r => r.type === 'boarding').sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -45,7 +37,6 @@ export default function Dashboard() {
       }
     });
 
-    // Meals - latest reports by meal type
     const mealReports = reports.filter(r => r.type === 'meal').sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -108,19 +99,20 @@ export default function Dashboard() {
       });
   }, [classes, students]);
 
-  // Group classes by grade for table display
-  const classesByGrade = useMemo(() => {
-    const grades: Record<number, typeof classStats> = {};
+  // Group by grade
+  const statsByGrade = useMemo(() => {
+    const result: Record<number, { students: number; boarding: number }> = {};
     classStats.forEach(c => {
-      if (!grades[c.grade]) grades[c.grade] = [];
-      grades[c.grade].push(c);
+      if (!result[c.grade]) result[c.grade] = { students: 0, boarding: 0 };
+      result[c.grade].students += c.studentCount;
+      result[c.grade].boarding += c.boardingCount;
     });
-    return grades;
+    return result;
   }, [classStats]);
 
   const getSessionLabel = (session: string) => {
     switch (session) {
-      case 'morning_exercise': return 'Thể dục sáng';
+      case 'morning_exercise': return 'Thể dục';
       case 'noon_nap': return 'Ngủ trưa';
       case 'evening_sleep': return 'Ngủ tối';
       default: return session;
@@ -129,175 +121,171 @@ export default function Dashboard() {
 
   const getMealLabel = (mealType: string) => {
     switch (mealType) {
-      case 'breakfast': return 'Bữa sáng';
-      case 'lunch': return 'Bữa trưa';
-      case 'dinner': return 'Bữa tối';
+      case 'breakfast': return 'Sáng';
+      case 'lunch': return 'Trưa';
+      case 'dinner': return 'Tối';
       default: return mealType;
     }
   };
 
+  // Quick action items
+  const quickActions = [
+    { label: 'Điểm danh nội trú', icon: Home, href: '/boarding', color: 'text-blue-600 bg-blue-100' },
+    { label: 'Điểm danh giờ học', icon: BookOpen, href: '/evening-study', color: 'text-purple-600 bg-purple-100' },
+    { label: 'Báo cáo bữa ăn', icon: Utensils, href: '/meals', color: 'text-orange-600 bg-orange-100' },
+    { label: 'Xem thống kê', icon: TrendingUp, href: '/statistics', color: 'text-green-600 bg-green-100' },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Meal Report Reminder for Class Teachers */}
       <MealReportReminder />
 
-      {/* Welcome Banner */}
-      <div className="rounded-2xl gradient-primary p-4 sm:p-6 text-primary-foreground shadow-lg relative overflow-hidden">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
-        <div className="absolute -right-5 -bottom-5 h-24 w-24 rounded-full bg-white/5" />
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-white/20">
-              <School className="h-6 w-6 sm:h-7 sm:w-7" />
+      {/* Compact Header */}
+      <div className="rounded-xl gradient-primary p-4 text-primary-foreground shadow-md relative overflow-hidden">
+        <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10" />
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+              <School className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold">{schoolInfo.name}</h1>
-              <p className="text-primary-foreground/80 text-sm">Hệ thống quản lý học sinh nội trú</p>
+              <h1 className="text-lg font-bold">{schoolInfo.name}</h1>
+              <div className="flex items-center gap-1.5 text-primary-foreground/80 text-xs">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>{format(new Date(), "EEEE, dd/MM/yyyy", { locale: vi })}</span>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 text-primary-foreground/70 text-sm">
-            <Calendar className="h-4 w-4" />
-            <span>{format(new Date(), "EEEE, 'ngày' dd 'tháng' MM 'năm' yyyy", { locale: vi })}</span>
+          {/* Progress indicator */}
+          <div className="text-right">
+            <div className="text-2xl font-bold">{todayCompletion.percentage}%</div>
+            <div className="text-xs text-primary-foreground/70">hoàn thành</div>
           </div>
         </div>
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="border-l-4 border-l-primary">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{students.length}</p>
-                <p className="text-xs text-muted-foreground">Học sinh</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-accent">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-                <GraduationCap className="h-5 w-5 text-accent" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{teachers.length}</p>
-                <p className="text-xs text-muted-foreground">Giáo viên</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
-                <Home className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{students.filter(s => s.room).length}</p>
-                <p className="text-xs text-muted-foreground">Nội trú</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-orange-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{classes.length}</p>
-                <p className="text-xs text-muted-foreground">Lớp học</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Quick Stats - Compact Grid */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="bg-card rounded-lg p-3 text-center shadow-sm border">
+          <Users className="h-5 w-5 mx-auto text-primary mb-1" />
+          <div className="text-xl font-bold">{students.length}</div>
+          <div className="text-[10px] text-muted-foreground">Học sinh</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center shadow-sm border">
+          <Home className="h-5 w-5 mx-auto text-green-600 mb-1" />
+          <div className="text-xl font-bold">{students.filter(s => s.room).length}</div>
+          <div className="text-[10px] text-muted-foreground">Nội trú</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center shadow-sm border">
+          <GraduationCap className="h-5 w-5 mx-auto text-accent mb-1" />
+          <div className="text-xl font-bold">{teachers.length}</div>
+          <div className="text-[10px] text-muted-foreground">Giáo viên</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center shadow-sm border">
+          <School className="h-5 w-5 mx-auto text-purple-600 mb-1" />
+          <div className="text-xl font-bold">{classes.length}</div>
+          <div className="text-[10px] text-muted-foreground">Lớp học</div>
+        </div>
       </div>
 
-      {/* Today's Progress */}
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {quickActions.map(action => (
+          <Link 
+            key={action.href}
+            to={action.href}
+            className="flex items-center gap-2 bg-card rounded-lg p-3 shadow-sm border hover:shadow-md transition-shadow"
+          >
+            <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", action.color)}>
+              <action.icon className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-medium flex-1">{action.label}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+        ))}
+      </div>
+
+      {/* Today's Progress - Compact */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
+              <Clock className="h-4 w-4 text-primary" />
               <span>Tiến độ hôm nay</span>
             </div>
-            <Badge variant={todayCompletion.percentage === 100 ? "default" : "secondary"}>
-              {todayCompletion.completedTasks}/{todayCompletion.totalTasks} hoàn thành
+            <Badge variant={todayCompletion.percentage === 100 ? "default" : "secondary"} className="text-xs">
+              {todayCompletion.completedTasks}/{todayCompletion.totalTasks}
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Tổng tiến độ</span>
-              <span className="font-medium">{todayCompletion.percentage}%</span>
-            </div>
-            <Progress value={todayCompletion.percentage} className="h-2" />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            {/* Meals Progress */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Utensils className="h-4 w-4 text-orange-500" />
+        <CardContent className="px-4 pb-4 pt-2">
+          <Progress value={todayCompletion.percentage} className="h-1.5 mb-3" />
+          
+          <div className="grid grid-cols-3 gap-3">
+            {/* Meals */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Utensils className="h-3.5 w-3.5 text-orange-500" />
                 <span>Bữa ăn</span>
               </div>
-              <div className="space-y-1.5">
+              <div className="flex gap-1">
                 {todayCompletion.mealsDone.map(({ mealType, done }) => (
-                  <div key={mealType} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{getMealLabel(mealType)}</span>
-                    {done ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-muted-foreground/50" />
+                  <div 
+                    key={mealType}
+                    className={cn(
+                      "flex-1 text-center py-1 px-1.5 rounded text-[10px] font-medium",
+                      done ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
                     )}
+                  >
+                    {getMealLabel(mealType)}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Boarding Progress */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Home className="h-4 w-4 text-blue-500" />
+            {/* Boarding */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Home className="h-3.5 w-3.5 text-blue-500" />
                 <span>Nội trú</span>
               </div>
-              <div className="space-y-1.5">
+              <div className="flex gap-1">
                 {todayCompletion.boardingDone.map(({ session, done }) => (
-                  <div key={session} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{getSessionLabel(session)}</span>
-                    {done ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-muted-foreground/50" />
+                  <div 
+                    key={session}
+                    className={cn(
+                      "flex-1 text-center py-1 px-0.5 rounded text-[10px] font-medium truncate",
+                      done ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
                     )}
+                  >
+                    {getSessionLabel(session)}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Evening Study Progress */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <BookOpen className="h-4 w-4 text-purple-500" />
-                <span>Tự học tối</span>
+            {/* Evening Study */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <BookOpen className="h-3.5 w-3.5 text-purple-500" />
+                <span>Tự học</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Điểm danh</span>
+              <div 
+                className={cn(
+                  "text-center py-1 rounded text-[10px] font-medium",
+                  todayCompletion.eveningStudyDone ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                )}
+              >
                 {todayCompletion.eveningStudyDone ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="flex items-center justify-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Đã điểm
+                  </span>
                 ) : (
-                  <AlertCircle className="h-4 w-4 text-muted-foreground/50" />
+                  <span className="flex items-center justify-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> Chưa điểm
+                  </span>
                 )}
               </div>
             </div>
@@ -305,190 +293,155 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Latest Statistics - Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Meals Stats */}
+      {/* Statistics Overview - Compact 2 columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Meals & Boarding Combined */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Utensils className="h-5 w-5 text-orange-500" />
-              Thống kê bữa ăn
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Utensils className="h-4 w-4 text-orange-500" />
+              Bữa ăn hôm nay
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {['breakfast', 'lunch', 'dinner'].map(mealType => {
-              const report = latestStats.meals[mealType];
-              return (
-                <div key={mealType} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div>
-                    <p className="font-medium text-sm">{getMealLabel(mealType)}</p>
-                    {report && (
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(report.date), 'dd/MM/yyyy')}
-                      </p>
+          <CardContent className="px-4 pb-4 pt-1">
+            <div className="grid grid-cols-3 gap-2">
+              {['breakfast', 'lunch', 'dinner'].map(mealType => {
+                const report = latestStats.meals[mealType];
+                const isToday = report && format(new Date(report.date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                return (
+                  <div 
+                    key={mealType} 
+                    className={cn(
+                      "p-2 rounded-lg text-center",
+                      isToday ? "bg-green-50 border border-green-200" : "bg-muted/50"
+                    )}
+                  >
+                    <div className="text-xs text-muted-foreground mb-0.5">{getMealLabel(mealType)}</div>
+                    {report && isToday ? (
+                      <>
+                        <div className="text-lg font-bold text-green-600">{report.presentCount}</div>
+                        <div className="text-[10px] text-muted-foreground">/ {report.totalStudents}</div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground py-2">--</div>
                     )}
                   </div>
-                  {report ? (
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-green-600">{report.presentCount}</p>
-                      <p className="text-xs text-muted-foreground">học sinh</p>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Chưa có</span>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
         {/* Boarding Stats */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Home className="h-5 w-5 text-blue-500" />
-              Thống kê nội trú
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Home className="h-4 w-4 text-blue-500" />
+              Nội trú gần nhất
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {['morning_exercise', 'noon_nap', 'evening_sleep'].map(session => {
-              const report = latestStats.boarding[session];
-              const percentage = report ? Math.round((report.presentCount / report.totalStudents) * 100) : 0;
-              return (
-                <div key={session} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{getSessionLabel(session)}</span>
+          <CardContent className="px-4 pb-4 pt-1">
+            <div className="grid grid-cols-3 gap-2">
+              {['morning_exercise', 'noon_nap', 'evening_sleep'].map(session => {
+                const report = latestStats.boarding[session];
+                const percentage = report ? Math.round((report.presentCount / report.totalStudents) * 100) : 0;
+                return (
+                  <div key={session} className="p-2 rounded-lg bg-muted/50 text-center">
+                    <div className="text-xs text-muted-foreground mb-0.5">{getSessionLabel(session)}</div>
                     {report ? (
-                      <span className="text-sm font-bold text-green-600">
-                        {report.presentCount}/{report.totalStudents}
-                      </span>
+                      <>
+                        <div className="text-lg font-bold text-blue-600">{percentage}%</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {report.presentCount}/{report.totalStudents}
+                        </div>
+                      </>
                     ) : (
-                      <span className="text-sm text-muted-foreground">Chưa có</span>
+                      <div className="text-xs text-muted-foreground py-2">--</div>
                     )}
                   </div>
-                  {report && (
-                    <Progress value={percentage} className="h-1.5" />
-                  )}
-                  {report && (
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(report.date), 'dd/MM/yyyy')} • Vắng: {report.absentCount}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-
-        {/* Evening Study Stats */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BookOpen className="h-5 w-5 text-purple-500" />
-              Thống kê tự học tối
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {latestStats.eveningStudy ? (
-              <div className="space-y-4">
-                <div className="text-center p-4 rounded-lg bg-muted/50">
-                  <p className="text-3xl font-bold text-green-600">
-                    {latestStats.eveningStudy.presentCount}
-                    <span className="text-lg text-muted-foreground font-normal">
-                      /{latestStats.eveningStudy.totalStudents}
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">học sinh có mặt</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tỉ lệ có mặt</span>
-                    <span className="font-medium">
-                      {Math.round((latestStats.eveningStudy.presentCount / latestStats.eveningStudy.totalStudents) * 100)}%
-                    </span>
-                  </div>
-                  <Progress 
-                    value={(latestStats.eveningStudy.presentCount / latestStats.eveningStudy.totalStudents) * 100} 
-                    className="h-2"
-                  />
-                </div>
-                <div className="flex justify-between text-sm pt-2 border-t">
-                  <span className="text-muted-foreground">Ngày báo cáo</span>
-                  <span>{format(new Date(latestStats.eveningStudy.date), 'dd/MM/yyyy')}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Vắng mặt</span>
-                  <span className="text-destructive font-medium">{latestStats.eveningStudy.absentCount}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <BookOpen className="h-10 w-10 mb-2 opacity-50" />
-                <p className="text-sm">Chưa có báo cáo</p>
-              </div>
-            )}
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Class Statistics Table */}
+      {/* Class Stats by Grade - Compact Table */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Thống kê theo lớp
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Users className="h-4 w-4 text-primary" />
+            Thống kê theo khối
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Khối</TableHead>
-                  {Object.keys(classesByGrade).sort((a, b) => Number(a) - Number(b)).map(grade => {
-                    const classesInGrade = classesByGrade[Number(grade)];
-                    return classesInGrade.map(c => (
-                      <TableHead key={c.id} className="text-center min-w-[70px]">
-                        {c.name}
-                      </TableHead>
-                    ));
-                  })}
-                  <TableHead className="text-center font-bold">Tổng</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Sĩ số</TableCell>
-                  {classStats.map(c => (
-                    <TableCell key={c.id} className="text-center font-medium">
-                      {c.studentCount}
-                    </TableCell>
-                  ))}
-                  <TableCell className="text-center font-bold text-primary">
-                    {students.length}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Nội trú</TableCell>
-                  {classStats.map(c => (
-                    <TableCell key={c.id} className="text-center">
-                      {c.boardingCount}
-                    </TableCell>
-                  ))}
-                  <TableCell className="text-center font-bold text-green-600">
-                    {students.filter(s => s.room).length}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+        <CardContent className="px-4 pb-4 pt-1">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {Object.entries(statsByGrade)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([grade, stats]) => (
+                <div key={grade} className="bg-muted/50 rounded-lg p-2 text-center">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Khối {grade}</div>
+                  <div className="text-lg font-bold">{stats.students}</div>
+                  <div className="text-[10px] text-green-600">{stats.boarding} nội trú</div>
+                </div>
+              ))}
+          </div>
+          
+          {/* Summary row */}
+          <div className="mt-3 pt-3 border-t flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">Tổng cộng</div>
+            <div className="flex items-center gap-4">
+              <div className="text-sm">
+                <span className="font-bold text-primary">{students.length}</span>
+                <span className="text-muted-foreground"> học sinh</span>
+              </div>
+              <div className="text-sm">
+                <span className="font-bold text-green-600">{students.filter(s => s.room).length}</span>
+                <span className="text-muted-foreground"> nội trú</span>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Evening Study - Compact */}
+      {latestStats.eveningStudy && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-purple-500" />
+                Tự học tối gần nhất
+              </div>
+              <span className="text-xs font-normal text-muted-foreground">
+                {format(new Date(latestStats.eveningStudy.date), 'dd/MM/yyyy')}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-1">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Progress 
+                  value={(latestStats.eveningStudy.presentCount / latestStats.eveningStudy.totalStudents) * 100} 
+                  className="h-2"
+                />
+              </div>
+              <div className="text-right">
+                <span className="text-lg font-bold text-green-600">{latestStats.eveningStudy.presentCount}</span>
+                <span className="text-muted-foreground">/{latestStats.eveningStudy.totalStudents}</span>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                Vắng: {latestStats.eveningStudy.absentCount}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Footer Credit */}
-      <div className="text-center py-4 border-t">
-        <p className="text-sm text-muted-foreground">
-          Thiết kế bởi <span className="font-medium text-primary">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: <span className="font-medium">0888 770 699</span>
+      <div className="text-center py-3 border-t">
+        <p className="text-xs text-muted-foreground">
+          Thiết kế bởi <span className="font-medium text-primary">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
         </p>
       </div>
     </div>
