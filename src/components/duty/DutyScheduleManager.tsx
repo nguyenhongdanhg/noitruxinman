@@ -3,12 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye } from 'lucide-react';
+import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDutySchedule, DutySchedule } from '@/hooks/useDutySchedule';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, getDaysInMonth, getDay } from 'date-fns';
+import { format, getDaysInMonth, getDay, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -19,6 +19,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface DutyScheduleManagerProps {
   selectedMonth: Date;
@@ -43,6 +54,15 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
   
   // Fetch existing duties for this month
   const { data: existingDuties = [] } = useDutyByMonth(year, month);
+
+  // Calculate previous month
+  const previousMonth = subMonths(selectedMonth, 1);
+  const prevYear = previousMonth.getFullYear();
+  const prevMonthNum = previousMonth.getMonth() + 1;
+  const prevDaysInMonth = getDaysInMonth(previousMonth);
+
+  // Fetch previous month's duties for copy feature
+  const { data: prevMonthDuties = [] } = useDutyByMonth(prevYear, prevMonthNum);
   
   // Fetch all users from profiles
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
@@ -128,6 +148,59 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
 
   const showAllUsers = () => {
     setHiddenUsers(new Set());
+  };
+
+  // Copy from previous month function
+  const copyFromPreviousMonth = () => {
+    if (prevMonthDuties.length === 0) {
+      toast({
+        title: 'Không có dữ liệu',
+        description: `Tháng ${prevMonthNum}/${prevYear} chưa có lịch trực để sao chép.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Build a map: teacher_name -> set of day-of-week they were on duty
+    // We'll match by day-of-week pattern
+    const newSelections: Record<string, Set<number>> = {};
+    
+    // Initialize with empty sets for all users
+    users.forEach(user => {
+      newSelections[user.full_name] = new Set();
+    });
+
+    // For each teacher in previous month, find matching days-of-week in current month
+    prevMonthDuties.forEach(duty => {
+      const prevDate = new Date(duty.duty_date);
+      const prevDayOfWeek = getDay(prevDate); // 0 = Sunday, 1 = Monday, etc.
+      const prevDayOfMonth = prevDate.getDate();
+      
+      // Find corresponding day in current month
+      // Option 1: Same day of month (if exists)
+      if (prevDayOfMonth <= daysInMonth) {
+        if (!newSelections[duty.teacher_name]) {
+          newSelections[duty.teacher_name] = new Set();
+        }
+        newSelections[duty.teacher_name].add(prevDayOfMonth);
+      }
+    });
+
+    setSelections(prev => {
+      // Merge with existing selections or replace
+      const merged = { ...prev };
+      Object.entries(newSelections).forEach(([name, days]) => {
+        if (days.size > 0) {
+          merged[name] = new Set([...(merged[name] || []), ...days]);
+        }
+      });
+      return merged;
+    });
+
+    toast({
+      title: 'Đã sao chép lịch trực',
+      description: `Đã sao chép ${prevMonthDuties.length} lượt trực từ tháng ${prevMonthNum}/${prevYear}`,
+    });
   };
 
   const handleSave = async () => {
@@ -327,6 +400,42 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Copy className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Sao chép T{prevMonthNum}</span>
+                  <span className="sm:hidden">Chép</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sao chép lịch trực</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn có muốn sao chép lịch trực từ tháng {prevMonthNum}/{prevYear} sang tháng {month}/{year}?
+                    {prevMonthDuties.length > 0 ? (
+                      <span className="block mt-2 text-foreground font-medium">
+                        Có {prevMonthDuties.length} lượt trực sẽ được sao chép.
+                      </span>
+                    ) : (
+                      <span className="block mt-2 text-destructive font-medium">
+                        Tháng trước chưa có lịch trực.
+                      </span>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={copyFromPreviousMonth}
+                    disabled={prevMonthDuties.length === 0}
+                  >
+                    Sao chép
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4 mr-1" />
