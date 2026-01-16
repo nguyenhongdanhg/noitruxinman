@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,7 +26,10 @@ type MealType = 'breakfast' | 'lunch' | 'dinner';
 
 export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
   const { students, classes, currentUser, createReport, isCreatingReport } = useApp();
+  const { hasRole } = useAuth();
   const { toast } = useToast();
+  
+  const isAdmin = hasRole('admin');
   
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedClass, setSelectedClass] = useState<string>(filterClassId || 'all');
@@ -126,18 +130,25 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
     }
   };
 
-  const canSubmit = (mealType: MealType) => {
+  // Kiểm tra hết hạn - admin luôn được phép
+  const isMealExpired = (mealType: MealType) => {
+    if (isAdmin) return false; // Admin không bị giới hạn
+    
     const now = new Date();
     const currentHour = now.getHours();
 
     if (mealType === 'breakfast') {
-      if (currentHour >= 22) return false;
+      return currentHour >= 22;
     } else if (mealType === 'lunch') {
-      if (currentHour >= 8) return false;
+      return currentHour >= 8;
     } else if (mealType === 'dinner') {
-      if (currentHour >= 15) return false;
+      return currentHour >= 15;
     }
-    return true;
+    return false;
+  };
+
+  const canSubmit = (mealType: MealType) => {
+    return !isMealExpired(mealType);
   };
 
   const saveMealReport = async (mealType: MealType) => {
@@ -285,17 +296,25 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
 
       {/* Three Meal Columns - Click để đánh dấu vắng */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((mealType) => {
+      {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((mealType) => {
           const absentSet = mealType === 'breakfast' ? breakfastAbsent :
                              mealType === 'lunch' ? lunchAbsent : dinnerAbsent;
           const absentCount = absentSet.size;
           const presentCount = filteredStudents.length - absentCount;
+          const expired = isMealExpired(mealType);
           
           return (
-            <Card key={mealType}>
+            <Card key={mealType} className={expired ? 'opacity-60' : ''}>
               <CardHeader className="pb-3 sm:pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{getMealLabel(mealType)}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">{getMealLabel(mealType)}</CardTitle>
+                    {expired && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">
+                        Hết hạn
+                      </span>
+                    )}
+                  </div>
                   <span className={`text-base sm:text-sm font-semibold ${absentCount > 0 ? 'text-destructive' : 'text-success'}`}>
                     {presentCount}/{filteredStudents.length}
                   </span>
@@ -307,6 +326,7 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
                     onClick={mealType === 'breakfast' ? markAllPresentBreakfast : 
                              mealType === 'lunch' ? markAllPresentLunch : markAllPresentDinner}
                     className="flex-1 text-sm h-10 sm:h-8"
+                    disabled={expired}
                   >
                     <CheckCircle2 className="h-4 w-4 mr-1.5" />
                     Đủ
@@ -317,6 +337,7 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
                     onClick={mealType === 'breakfast' ? markAllAbsentBreakfast :
                              mealType === 'lunch' ? markAllAbsentLunch : markAllAbsentDinner}
                     className="flex-1 text-sm h-10 sm:h-8"
+                    disabled={expired}
                   >
                     <XCircle className="h-4 w-4 mr-1.5" />
                     Vắng
@@ -330,17 +351,22 @@ export function MealAttendanceForm({ filterClassId }: MealAttendanceFormProps) {
                     return (
                       <div
                         key={student.id}
-                        className={`flex items-center gap-3 sm:gap-2 p-3.5 sm:p-2.5 rounded-xl sm:rounded-lg border-2 sm:border transition-all cursor-pointer active:scale-[0.98] ${
+                        className={`flex items-center gap-3 sm:gap-2 p-3.5 sm:p-2.5 rounded-xl sm:rounded-lg border-2 sm:border transition-all ${
+                          expired 
+                            ? 'cursor-not-allowed' 
+                            : 'cursor-pointer active:scale-[0.98]'
+                        } ${
                           isAbsent
                             ? 'bg-destructive/10 border-destructive/40 sm:border-destructive/30'
                             : 'bg-success/5 border-success/30 sm:border-success/20'
                         }`}
-                        onClick={() => toggleAbsent(student.id, mealType)}
+                        onClick={() => !expired && toggleAbsent(student.id, mealType)}
                       >
                         <Checkbox
                           checked={isAbsent}
-                          onCheckedChange={() => toggleAbsent(student.id, mealType)}
+                          onCheckedChange={() => !expired && toggleAbsent(student.id, mealType)}
                           className="h-5 w-5 sm:h-4 sm:w-4"
+                          disabled={expired}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-foreground truncate text-base sm:text-sm">{student.name}</p>
