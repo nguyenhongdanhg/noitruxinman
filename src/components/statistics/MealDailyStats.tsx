@@ -96,6 +96,26 @@ export function MealDailyStats() {
       const boardingStudents = students.filter(s => s.room);
       const presentCount = totalReported - totalAbsent;
 
+      // Tính thống kê theo mâm
+      const mealGroupStats: Record<string, { total: number; present: number; absent: number; absentStudents: Array<{ name: string; className: string; permission?: 'P' | 'KP' }> }> = {};
+      const mealGroups = [...new Set(boardingStudents.map(s => s.mealGroup).filter(Boolean))];
+      
+      mealGroups.forEach(group => {
+        const groupStudents = boardingStudents.filter(s => s.mealGroup === group);
+        const absentInGroup = absentStudents.filter(a => a.mealGroup === group);
+        const presentInGroup = groupStudents.length - absentInGroup.length;
+        mealGroupStats[group] = {
+          total: groupStudents.length,
+          present: presentInGroup > 0 ? presentInGroup : 0,
+          absent: absentInGroup.length,
+          absentStudents: absentInGroup.map(a => ({
+            name: a.name,
+            className: a.className,
+            permission: a.permission,
+          })),
+        };
+      });
+
       return {
         reportedClasses,
         missingClasses,
@@ -105,6 +125,7 @@ export function MealDailyStats() {
         absentCount: mealReports.length > 0 ? totalAbsent : 0,
         absentStudents,
         hasReports: mealReports.length > 0,
+        mealGroupStats,
       };
     };
 
@@ -283,8 +304,50 @@ export function MealDailyStats() {
               </div>
             )}
 
-            {/* Danh sách vắng */}
-            {stats.absentCount > 0 && (
+            {/* Danh sách vắng theo mâm */}
+            {stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length > 0 && (
+              <div className="space-y-2 pt-2 border-t">
+                <p className="text-xs font-medium text-destructive flex items-center gap-1">
+                  <Utensils className="h-3 w-3" />
+                  Vắng theo mâm: {stats.absentCount} học sinh
+                </p>
+                <div className="space-y-2">
+                  {Object.entries(stats.mealGroupStats)
+                    .filter(([_, data]) => data.absent > 0)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([group, data]) => (
+                      <div key={group} className="bg-destructive/5 rounded-md p-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold text-destructive">
+                            Mâm {group}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 text-amber-700 border-amber-200">
+                            {data.present}/{data.total}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {data.absentStudents.map((s, idx) => (
+                            <span
+                              key={idx}
+                              className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded",
+                                s.permission === 'P' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-red-100 text-red-700'
+                              )}
+                            >
+                              {s.name} ({s.className}) {s.permission === 'P' ? 'P' : 'KP'}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Danh sách vắng không có mâm */}
+            {stats.absentCount > 0 && Object.keys(stats.mealGroupStats).length === 0 && (
               <div className="space-y-1 pt-2 border-t">
                 <p className="text-xs font-medium text-destructive">
                   Vắng: {stats.absentCount} học sinh
