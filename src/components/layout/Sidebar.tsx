@@ -18,6 +18,7 @@ import {
   Calculator,
   ChefHat,
   GraduationCap,
+  CalendarClock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ export function Sidebar() {
     { icon: BookOpen, label: 'Điểm danh tự học', path: '/evening-study', show: canAccessAttendance() },
     { icon: Home, label: 'Điểm danh nội trú', path: '/boarding', show: canAccessAttendance() },
     { icon: Utensils, label: 'Báo cáo bữa ăn', path: '/meals', show: canAccessMeals() },
+    { icon: CalendarClock, label: 'Lịch trực', path: '/duty-schedule', show: true },
     { icon: BarChart3, label: 'Thống kê', path: '/statistics', show: true },
     { icon: UserCog, label: 'Quản lý tài khoản', path: '/users', show: isAdmin },
     { icon: Settings, label: 'Cài đặt', path: '/settings', show: true },

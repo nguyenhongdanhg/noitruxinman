@@ -17,6 +17,7 @@ import Statistics from "./pages/Statistics";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
 import MobileMenu from "./pages/MobileMenu";
+import DutySchedule from "./pages/DutySchedule";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
@@ -90,6 +91,16 @@ const App = () => (
                   <ProtectedRoute>
                     <MainLayout>
                       <Statistics />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/duty-schedule"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <DutySchedule />
                     </MainLayout>
                   </ProtectedRoute>
                 }

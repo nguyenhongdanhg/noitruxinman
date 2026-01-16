@@ -104,6 +104,39 @@ export type Database = {
         }
         Relationships: []
       }
+      duty_schedules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duty_date: string
+          id: string
+          notes: string | null
+          teacher_name: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duty_date: string
+          id?: string
+          notes?: string | null
+          teacher_name: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duty_date?: string
+          id?: string
+          notes?: string | null
+          teacher_name?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       login_history: {
         Row: {
           id: string

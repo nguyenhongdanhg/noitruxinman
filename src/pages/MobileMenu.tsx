@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronRight,
   School,
+  CalendarClock,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ export default function MobileMenu() {
 
   const menuItems = [
     { icon: Users, label: 'Danh sách học sinh', path: '/students', show: true },
+    { icon: CalendarClock, label: 'Lịch trực', path: '/duty-schedule', show: true },
     { icon: BarChart3, label: 'Thống kê tổng hợp', path: '/statistics', show: true },
     { icon: UserCog, label: 'Quản lý tài khoản', path: '/users', show: isAdmin },
     { icon: Settings, label: 'Cài đặt hệ thống', path: '/settings', show: true },
