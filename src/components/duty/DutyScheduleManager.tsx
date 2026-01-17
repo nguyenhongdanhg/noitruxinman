@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy, Trash2, RefreshCw, Users, Check, X } from 'lucide-react';
+import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy, Trash2, RefreshCw, Users, Check, X, Shuffle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDutySchedule, DutySchedule } from '@/hooks/useDutySchedule';
 import { useQuery } from '@tanstack/react-query';
@@ -29,6 +29,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface DutyScheduleManagerProps {
   selectedMonth: Date;
@@ -274,6 +282,99 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     toast({
       title: 'Đã sao chép lịch trực',
       description: `Đã sao chép ${prevMonthDuties.length} lượt trực từ tháng ${prevMonthNum}/${prevYear}`,
+    });
+  };
+
+  // State for auto-assign dialog
+  const [autoAssignDaysPerPerson, setAutoAssignDaysPerPerson] = useState<number>(3);
+
+  // Auto-assign random duties evenly
+  const autoAssignRandomly = () => {
+    if (visibleUsers.length === 0) {
+      toast({
+        title: 'Không có người để phân công',
+        description: 'Vui lòng tải danh sách hoặc hiện người đã ẩn.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Clear existing selections for visible users
+    const newSelections: Record<string, Set<number>> = {};
+    visibleUsers.forEach(user => {
+      newSelections[user.full_name] = new Set();
+    });
+
+    // Create a list of all days
+    const allDays: number[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      allDays.push(day);
+    }
+
+    // Calculate total assignments needed
+    const totalAssignments = visibleUsers.length * autoAssignDaysPerPerson;
+    
+    // Create assignment pool: each user should get autoAssignDaysPerPerson days
+    const userPool: string[] = [];
+    visibleUsers.forEach(user => {
+      for (let i = 0; i < autoAssignDaysPerPerson; i++) {
+        userPool.push(user.full_name);
+      }
+    });
+
+    // Shuffle the user pool randomly
+    for (let i = userPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [userPool[i], userPool[j]] = [userPool[j], userPool[i]];
+    }
+
+    // Shuffle the days
+    const shuffledDays = [...allDays];
+    for (let i = shuffledDays.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledDays[i], shuffledDays[j]] = [shuffledDays[j], shuffledDays[i]];
+    }
+
+    // Assign users to days, trying to distribute evenly
+    // Track how many people are assigned to each day
+    const dayAssignments: Record<number, string[]> = {};
+    allDays.forEach(day => {
+      dayAssignments[day] = [];
+    });
+
+    // For each user in the shuffled pool, assign them to a day
+    let dayIndex = 0;
+    userPool.forEach(userName => {
+      // Find a day that this user isn't already assigned to
+      let attempts = 0;
+      while (attempts < daysInMonth) {
+        const day = shuffledDays[dayIndex % daysInMonth];
+        if (!newSelections[userName].has(day)) {
+          newSelections[userName].add(day);
+          dayAssignments[day].push(userName);
+          break;
+        }
+        dayIndex++;
+        attempts++;
+      }
+      dayIndex++;
+    });
+
+    // Merge with selections for hidden users (keep their existing selections)
+    setSelections(prev => {
+      const merged = { ...newSelections };
+      // Keep selections of users who are not visible (hidden users)
+      dutyListUsers.forEach(user => {
+        if (hiddenUsers.has(user.id) && prev[user.full_name]) {
+          merged[user.full_name] = prev[user.full_name];
+        }
+      });
+      return merged;
+    });
+
+    toast({
+      title: 'Đã phân công ngẫu nhiên',
+      description: `Đã phân công ${autoAssignDaysPerPerson} ngày/người cho ${visibleUsers.length} người (tổng ${visibleUsers.length * autoAssignDaysPerPerson} lượt).`,
     });
   };
 
@@ -564,6 +665,63 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     disabled={prevMonthDuties.length === 0}
                   >
                     Sao chép
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Auto-assign random button */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 dark:bg-green-950 dark:hover:bg-green-900 dark:border-green-800 dark:text-green-300">
+                  <Shuffle className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Tự động phân</span>
+                  <span className="sm:hidden">Tự động</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Phân công ngẫu nhiên</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-4">
+                      <p>
+                        Tự động phân công ngẫu nhiên đều cho mỗi người trong danh sách hiện tại.
+                      </p>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Label htmlFor="days-per-person" className="text-foreground whitespace-nowrap">
+                          Số ngày/người:
+                        </Label>
+                        <Select
+                          value={autoAssignDaysPerPerson.toString()}
+                          onValueChange={(value) => setAutoAssignDaysPerPerson(parseInt(value))}
+                        >
+                          <SelectTrigger id="days-per-person" className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="3">3</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="6">6</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Sẽ phân công cho <strong className="text-foreground">{visibleUsers.length}</strong> người 
+                        (đang hiển thị), tổng <strong className="text-foreground">{visibleUsers.length * autoAssignDaysPerPerson}</strong> lượt trực.
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        ⚠️ Lưu ý: Các lựa chọn hiện tại của người đang hiển thị sẽ bị thay thế.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction onClick={autoAssignRandomly} className="bg-green-600 hover:bg-green-700">
+                    <Shuffle className="h-4 w-4 mr-1" />
+                    Phân công ngẫu nhiên
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
