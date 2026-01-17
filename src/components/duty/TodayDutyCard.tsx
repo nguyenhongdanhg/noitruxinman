@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, User, Clock, Sparkles } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, User, Clock, Sparkles, AlertCircle } from 'lucide-react';
+import { format, subDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { DutySchedule } from '@/hooks/useDutySchedule';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,11 +10,52 @@ import { cn } from '@/lib/utils';
 
 interface TodayDutyCardProps {
   duties: DutySchedule[] | undefined;
+  previousDayDuties?: DutySchedule[] | undefined;
   isLoading: boolean;
 }
 
-export function TodayDutyCard({ duties, isLoading }: TodayDutyCardProps) {
-  const today = new Date();
+// Ca trực: 6h00 hôm nay đến 6h00 ngày mai
+const SHIFT_START_HOUR = 6;
+
+export function TodayDutyCard({ duties, previousDayDuties, isLoading }: TodayDutyCardProps) {
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Xác định ca trực hiện tại dựa trên thời gian thực
+  // Nếu trước 6h sáng -> hiện ca trực của ngày hôm qua
+  // Nếu từ 6h sáng trở đi -> hiện ca trực của ngày hôm nay
+  const isBeforeShiftChange = currentHour < SHIFT_START_HOUR;
+  
+  const currentShiftDate = useMemo(() => {
+    if (isBeforeShiftChange) {
+      return subDays(now, 1);
+    }
+    return now;
+  }, [isBeforeShiftChange, now]);
+
+  // Lấy danh sách ca trực đúng theo thời gian
+  const currentDuties = useMemo(() => {
+    if (isBeforeShiftChange && previousDayDuties) {
+      return previousDayDuties;
+    }
+    return duties;
+  }, [isBeforeShiftChange, previousDayDuties, duties]);
+
+  // Tính thời gian kết thúc ca trực
+  const shiftEndTime = useMemo(() => {
+    const endDate = new Date(currentShiftDate);
+    endDate.setDate(endDate.getDate() + 1);
+    endDate.setHours(SHIFT_START_HOUR, 0, 0, 0);
+    return endDate;
+  }, [currentShiftDate]);
+
+  // Tính thời gian còn lại của ca trực
+  const remainingTime = useMemo(() => {
+    const diff = shiftEndTime.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return { hours, minutes };
+  }, [shiftEndTime, now]);
 
   if (isLoading) {
     return (
@@ -25,6 +66,7 @@ export function TodayDutyCard({ duties, isLoading }: TodayDutyCardProps) {
         </div>
         <CardContent className="p-4">
           <div className="flex gap-3">
+            <Skeleton className="h-12 w-12 rounded-full" />
             <Skeleton className="h-12 w-12 rounded-full" />
             <Skeleton className="h-12 w-12 rounded-full" />
           </div>
@@ -50,6 +92,9 @@ export function TodayDutyCard({ duties, isLoading }: TodayDutyCardProps) {
     'bg-teal-500',
   ];
 
+  const dutyCount = currentDuties?.length || 0;
+  const isFullShift = dutyCount >= 3;
+
   return (
     <Card className="overflow-hidden border-0 shadow-lg">
       {/* Header with gradient */}
@@ -60,35 +105,64 @@ export function TodayDutyCard({ duties, isLoading }: TodayDutyCardProps) {
         <div className="relative z-10">
           <div className="flex items-center gap-2 text-primary-foreground/90 text-sm font-medium">
             <Calendar className="h-4 w-4" />
-            Lịch trực hôm nay
+            Ca trực hiện tại
           </div>
           <div className="text-lg font-semibold mt-1">
-            {format(today, "EEEE", { locale: vi })}
+            {format(currentShiftDate, "EEEE", { locale: vi })}
           </div>
           <div className="text-primary-foreground/80 text-sm">
-            {format(today, "dd/MM/yyyy")}
+            {format(currentShiftDate, "dd/MM/yyyy")}
           </div>
+        </div>
+      </div>
+
+      {/* Shift time info */}
+      <div className="bg-muted/50 px-4 py-2 border-b flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" />
+          <span>
+            Ca trực: <strong className="text-foreground">6:00</strong> ngày {format(currentShiftDate, "dd/MM")} 
+            {" → "}
+            <strong className="text-foreground">6:00</strong> ngày {format(shiftEndTime, "dd/MM")}
+          </span>
+        </div>
+        <div className="text-muted-foreground">
+          Còn <strong className="text-foreground">{remainingTime.hours}h {remainingTime.minutes}p</strong>
         </div>
       </div>
 
       {/* Content */}
       <CardContent className="p-4">
-        {!duties || duties.length === 0 ? (
+        {!currentDuties || currentDuties.length === 0 ? (
           <div className="flex items-center gap-3 text-muted-foreground py-2">
             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
               <User className="h-5 w-5" />
             </div>
-            <div className="text-sm italic">Không có ai trực hôm nay</div>
+            <div className="text-sm italic">Không có ai trực ca này</div>
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>{duties.length} người trực</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium",
+                  isFullShift 
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                )}>
+                  {dutyCount}/3 người trực
+                </span>
+              </div>
+              {!isFullShift && (
+                <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>Thiếu {3 - dutyCount} người</span>
+                </div>
+              )}
             </div>
             
             <div className="flex flex-wrap gap-3">
-              {duties.map((duty, index) => (
+              {currentDuties.map((duty, index) => (
                 <div 
                   key={duty.id} 
                   className="flex items-center gap-2 bg-muted/50 rounded-full pl-1 pr-3 py-1 hover:bg-muted transition-colors"
