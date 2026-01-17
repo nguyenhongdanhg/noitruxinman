@@ -226,9 +226,8 @@ export default function Auth() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-1">
               <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-              <TabsTrigger value="register">Đăng ký</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login" className="mt-4">
@@ -280,85 +279,11 @@ export default function Auth() {
               </form>
             </TabsContent>
             
-            <TabsContent value="register" className="mt-4">
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-name">Họ và tên</Label>
-                  <Input
-                    id="register-name"
-                    type="text"
-                    placeholder="Nguyễn Văn A"
-                    value={registerName}
-                    onChange={(e) => setRegisterName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-username">Tên đăng nhập</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="register-username"
-                      type="text"
-                      placeholder="nguyenvana"
-                      value={registerUsername}
-                      onChange={(e) => setRegisterUsername(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-phone">Số điện thoại</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="register-phone"
-                      type="tel"
-                      placeholder="0912345678"
-                      value={registerPhone}
-                      onChange={(e) => setRegisterPhone(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    placeholder="teacher@school.edu.vn"
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Mật khẩu</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    placeholder="Ít nhất 6 ký tự"
-                    value={registerPassword}
-                    onChange={(e) => setRegisterPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Đang xử lý...
-                    </>
-                  ) : (
-                    'Đăng ký'
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
+            {/* Registration disabled - accounts are created by admin only */}
           </Tabs>
         </CardContent>
-        <CardFooter className="flex flex-col text-center text-sm text-muted-foreground">
+        <CardFooter className="flex flex-col text-center text-sm text-muted-foreground space-y-1">
+          <p>Liên hệ quản trị viên để được cấp tài khoản</p>
           <p>Thiết kế bởi Thầy giáo Nguyễn Hồng Dân</p>
           <p className="text-primary">Zalo: 0888 770 699</p>
         </CardFooter>
