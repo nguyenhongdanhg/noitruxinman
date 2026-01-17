@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy, Trash2, RefreshCw, Users, Check, X, Shuffle } from 'lucide-react';
+import { Download, Save, Loader2, AlertTriangle, AlertCircle, Info, EyeOff, Eye, Copy, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDutySchedule, DutySchedule } from '@/hooks/useDutySchedule';
 import { useQuery } from '@tanstack/react-query';
@@ -29,14 +30,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 
 interface DutyScheduleManagerProps {
   selectedMonth: Date;
@@ -47,30 +40,6 @@ interface UserProfile {
   id: string;
   full_name: string;
 }
-
-const DUTY_LIST_STORAGE_KEY = 'duty-schedule-user-list';
-
-// Load saved duty list from localStorage
-const loadSavedDutyList = (): UserProfile[] => {
-  try {
-    const saved = localStorage.getItem(DUTY_LIST_STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Error loading saved duty list:', e);
-  }
-  return [];
-};
-
-// Save duty list to localStorage
-const saveDutyList = (users: UserProfile[]) => {
-  try {
-    localStorage.setItem(DUTY_LIST_STORAGE_KEY, JSON.stringify(users));
-  } catch (e) {
-    console.error('Error saving duty list:', e);
-  }
-};
 
 export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutyScheduleManagerProps) {
   const { toast } = useToast();
@@ -83,8 +52,8 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
   // Hidden users state (ẩn tạm thời trong dropdown)
   const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
   
-  // Active duty list users (only users that are in the duty list) - load from localStorage on init
-  const [dutyListUsers, setDutyListUsers] = useState<UserProfile[]>(() => loadSavedDutyList());
+  // Removed users state (xóa khỏi danh sách phân công, có thể phục hồi)
+  const [removedUsers, setRemovedUsers] = useState<Set<string>>(new Set());
   
   // Fetch existing duties for this month
   const { data: existingDuties = [] } = useDutyByMonth(year, month);
@@ -98,8 +67,8 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
   // Fetch previous month's duties for copy feature
   const { data: prevMonthDuties = [] } = useDutyByMonth(prevYear, prevMonthNum);
   
-  // Fetch all users from profiles (for loading)
-  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({
+  // Fetch all users from profiles
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['profiles-for-duty'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -112,15 +81,20 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     },
   });
 
-  // Filter visible users (exclude hidden)
+  // Filter visible users (exclude both hidden and removed)
   const visibleUsers = useMemo(() => {
-    return dutyListUsers.filter(user => !hiddenUsers.has(user.id));
-  }, [dutyListUsers, hiddenUsers]);
+    return users.filter(user => !hiddenUsers.has(user.id) && !removedUsers.has(user.id));
+  }, [users, hiddenUsers, removedUsers]);
+  
+  // Users that have been removed (for restore list)
+  const removedUsersList = useMemo(() => {
+    return users.filter(user => removedUsers.has(user.id));
+  }, [users, removedUsers]);
 
   // Build initial selections from existing duties
   const initialSelections = useMemo(() => {
     const selections: Record<string, Set<number>> = {};
-    dutyListUsers.forEach(user => {
+    users.forEach(user => {
       selections[user.full_name] = new Set();
     });
     existingDuties.forEach(duty => {
@@ -131,7 +105,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
       selections[duty.teacher_name].add(day);
     });
     return selections;
-  }, [dutyListUsers, existingDuties]);
+  }, [users, existingDuties]);
 
   const [selections, setSelections] = useState<Record<string, Set<number>>>(initialSelections);
   
@@ -184,12 +158,12 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     setHiddenUsers(new Set());
   };
 
-  // Remove user from duty list (not from system) and save
+  // Remove user from duty list (not from system)
   const removeUserFromDutyList = (userId: string, userName: string) => {
-    setDutyListUsers(prev => {
-      const newList = prev.filter(u => u.id !== userId);
-      saveDutyList(newList);
-      return newList;
+    setRemovedUsers(prev => {
+      const next = new Set(prev);
+      next.add(userId);
+      return next;
     });
     // Also clear their selections
     setSelections(prev => {
@@ -203,33 +177,22 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     });
   };
 
-  // Load all users from account list and save
-  const loadFromAccountList = () => {
-    const newList = [...allUsers];
-    setDutyListUsers(newList);
-    saveDutyList(newList);
-    setHiddenUsers(new Set());
-    // Initialize selections for new users
-    setSelections(prev => {
-      const next = { ...prev };
-      allUsers.forEach(user => {
-        if (!next[user.full_name]) {
-          next[user.full_name] = new Set();
-        }
-      });
-      // Also include existing duties
-      existingDuties.forEach(duty => {
-        const day = parseInt(duty.duty_date.split('-')[2], 10);
-        if (!next[duty.teacher_name]) {
-          next[duty.teacher_name] = new Set();
-        }
-        next[duty.teacher_name].add(day);
-      });
+  // Restore a removed user
+  const restoreUser = (userId: string) => {
+    setRemovedUsers(prev => {
+      const next = new Set(prev);
+      next.delete(userId);
       return next;
     });
+  };
+
+  // Reload all users from account list
+  const reloadFromAccountList = () => {
+    setRemovedUsers(new Set());
+    setHiddenUsers(new Set());
     toast({
-      title: 'Đã tải danh sách',
-      description: `Đã thêm ${allUsers.length} người vào danh sách phân công.`,
+      title: 'Đã tải lại danh sách',
+      description: 'Danh sách phân công đã được cập nhật từ danh sách tài khoản.',
     });
   };
 
@@ -249,13 +212,14 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     const newSelections: Record<string, Set<number>> = {};
     
     // Initialize with empty sets for all users
-    dutyListUsers.forEach(user => {
+    users.forEach(user => {
       newSelections[user.full_name] = new Set();
     });
 
     // For each teacher in previous month, find matching days-of-week in current month
     prevMonthDuties.forEach(duty => {
       const prevDate = new Date(duty.duty_date);
+      const prevDayOfWeek = getDay(prevDate); // 0 = Sunday, 1 = Monday, etc.
       const prevDayOfMonth = prevDate.getDate();
       
       // Find corresponding day in current month
@@ -282,99 +246,6 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     toast({
       title: 'Đã sao chép lịch trực',
       description: `Đã sao chép ${prevMonthDuties.length} lượt trực từ tháng ${prevMonthNum}/${prevYear}`,
-    });
-  };
-
-  // State for auto-assign dialog
-  const [autoAssignDaysPerPerson, setAutoAssignDaysPerPerson] = useState<number>(3);
-
-  // Auto-assign random duties evenly
-  const autoAssignRandomly = () => {
-    if (visibleUsers.length === 0) {
-      toast({
-        title: 'Không có người để phân công',
-        description: 'Vui lòng tải danh sách hoặc hiện người đã ẩn.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Clear existing selections for visible users
-    const newSelections: Record<string, Set<number>> = {};
-    visibleUsers.forEach(user => {
-      newSelections[user.full_name] = new Set();
-    });
-
-    // Create a list of all days
-    const allDays: number[] = [];
-    for (let day = 1; day <= daysInMonth; day++) {
-      allDays.push(day);
-    }
-
-    // Calculate total assignments needed
-    const totalAssignments = visibleUsers.length * autoAssignDaysPerPerson;
-    
-    // Create assignment pool: each user should get autoAssignDaysPerPerson days
-    const userPool: string[] = [];
-    visibleUsers.forEach(user => {
-      for (let i = 0; i < autoAssignDaysPerPerson; i++) {
-        userPool.push(user.full_name);
-      }
-    });
-
-    // Shuffle the user pool randomly
-    for (let i = userPool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [userPool[i], userPool[j]] = [userPool[j], userPool[i]];
-    }
-
-    // Shuffle the days
-    const shuffledDays = [...allDays];
-    for (let i = shuffledDays.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledDays[i], shuffledDays[j]] = [shuffledDays[j], shuffledDays[i]];
-    }
-
-    // Assign users to days, trying to distribute evenly
-    // Track how many people are assigned to each day
-    const dayAssignments: Record<number, string[]> = {};
-    allDays.forEach(day => {
-      dayAssignments[day] = [];
-    });
-
-    // For each user in the shuffled pool, assign them to a day
-    let dayIndex = 0;
-    userPool.forEach(userName => {
-      // Find a day that this user isn't already assigned to
-      let attempts = 0;
-      while (attempts < daysInMonth) {
-        const day = shuffledDays[dayIndex % daysInMonth];
-        if (!newSelections[userName].has(day)) {
-          newSelections[userName].add(day);
-          dayAssignments[day].push(userName);
-          break;
-        }
-        dayIndex++;
-        attempts++;
-      }
-      dayIndex++;
-    });
-
-    // Merge with selections for hidden users (keep their existing selections)
-    setSelections(prev => {
-      const merged = { ...newSelections };
-      // Keep selections of users who are not visible (hidden users)
-      dutyListUsers.forEach(user => {
-        if (hiddenUsers.has(user.id) && prev[user.full_name]) {
-          merged[user.full_name] = prev[user.full_name];
-        }
-      });
-      return merged;
-    });
-
-    toast({
-      title: 'Đã phân công ngẫu nhiên',
-      description: `Đã phân công ${autoAssignDaysPerPerson} ngày/người cho ${visibleUsers.length} người (tổng ${visibleUsers.length * autoAssignDaysPerPerson} lượt).`,
     });
   };
 
@@ -432,7 +303,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     rows.push(dayLabels.join(','));
 
     let stt = 1;
-    dutyListUsers.forEach(user => {
+    users.forEach(user => {
       const userDays = selections[user.full_name] || new Set();
       const row = [stt.toString(), user.full_name];
       for (let day = 1; day <= daysInMonth; day++) {
@@ -442,7 +313,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
       stt++;
     });
 
-    const userNames = new Set(dutyListUsers.map(u => u.full_name));
+    const userNames = new Set(users.map(u => u.full_name));
     Object.entries(selections).forEach(([teacherName, days]) => {
       if (!userNames.has(teacherName) && days.size > 0) {
         const row = [stt.toString(), teacherName];
@@ -522,35 +393,6 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
     );
   }
 
-  // Show empty state with load button if list is empty
-  if (dutyListUsers.length === 0) {
-    return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Phân công lịch trực tháng {month}/{year}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 space-y-4">
-            <Users className="h-16 w-16 text-muted-foreground/50" />
-            <div className="text-center space-y-2">
-              <h3 className="font-medium text-lg">Chưa có danh sách phân công</h3>
-              <p className="text-sm text-muted-foreground max-w-md">
-                Nhấn nút bên dưới để tải danh sách người trực từ danh sách tài khoản. 
-                Bạn có thể xóa bớt người không cần thiết sau khi tải.
-              </p>
-            </div>
-            <Button size="lg" onClick={loadFromAccountList} className="mt-4">
-              <RefreshCw className="h-5 w-5 mr-2" />
-              Tải danh sách từ tài khoản ({allUsers.length} người)
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -573,20 +415,60 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                 <AlertDialogHeader>
                   <AlertDialogTitle>Tải lại danh sách</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Bạn có muốn tải lại danh sách từ danh sách tài khoản? Danh sách hiện tại sẽ được thay thế.
-                    <span className="block mt-2 text-foreground font-medium">
-                      Có {allUsers.length} người trong danh sách tài khoản.
-                    </span>
+                    Bạn có muốn tải lại danh sách từ danh sách tài khoản? Tất cả người đã xóa sẽ được phục hồi.
+                    {removedUsers.size > 0 && (
+                      <span className="block mt-2 text-foreground font-medium">
+                        Có {removedUsers.size} người sẽ được thêm lại.
+                      </span>
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction onClick={loadFromAccountList}>
+                  <AlertDialogAction onClick={reloadFromAccountList}>
                     Tải lại
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            {/* Restore removed users dropdown */}
+            {removedUsers.size > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive border-destructive/50">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Đã xóa {removedUsers.size}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-auto bg-background">
+                  <DropdownMenuLabel>Người đã xóa</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full justify-start text-xs" 
+                    onClick={reloadFromAccountList}
+                  >
+                    Phục hồi tất cả
+                  </Button>
+                  <DropdownMenuSeparator />
+                  {removedUsersList.map(user => (
+                    <div key={user.id} className="flex items-center justify-between px-2 py-1.5 text-xs">
+                      <span className="truncate">{user.full_name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => restoreUser(user.id)}
+                      >
+                        Phục hồi
+                      </Button>
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* Hide/show users dropdown */}
             <DropdownMenu>
@@ -621,7 +503,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     <DropdownMenuSeparator />
                   </>
                 )}
-                {dutyListUsers.map(user => (
+                {users.filter(u => !removedUsers.has(u.id)).map(user => (
                   <DropdownMenuCheckboxItem
                     key={user.id}
                     checked={hiddenUsers.has(user.id)}
@@ -669,63 +551,6 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-
-            {/* Auto-assign random button */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 dark:bg-green-950 dark:hover:bg-green-900 dark:border-green-800 dark:text-green-300">
-                  <Shuffle className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Tự động phân</span>
-                  <span className="sm:hidden">Tự động</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Phân công ngẫu nhiên</AlertDialogTitle>
-                  <AlertDialogDescription asChild>
-                    <div className="space-y-4">
-                      <p>
-                        Tự động phân công ngẫu nhiên đều cho mỗi người trong danh sách hiện tại.
-                      </p>
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                        <Label htmlFor="days-per-person" className="text-foreground whitespace-nowrap">
-                          Số ngày/người:
-                        </Label>
-                        <Select
-                          value={autoAssignDaysPerPerson.toString()}
-                          onValueChange={(value) => setAutoAssignDaysPerPerson(parseInt(value))}
-                        >
-                          <SelectTrigger id="days-per-person" className="w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="2">2</SelectItem>
-                            <SelectItem value="3">3</SelectItem>
-                            <SelectItem value="4">4</SelectItem>
-                            <SelectItem value="5">5</SelectItem>
-                            <SelectItem value="6">6</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Sẽ phân công cho <strong className="text-foreground">{visibleUsers.length}</strong> người 
-                        (đang hiển thị), tổng <strong className="text-foreground">{visibleUsers.length * autoAssignDaysPerPerson}</strong> lượt trực.
-                      </p>
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        ⚠️ Lưu ý: Các lựa chọn hiện tại của người đang hiển thị sẽ bị thay thế.
-                      </p>
-                    </div>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction onClick={autoAssignRandomly} className="bg-green-600 hover:bg-green-700">
-                    <Shuffle className="h-4 w-4 mr-1" />
-                    Phân công ngẫu nhiên
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
             
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4 mr-1" />
@@ -745,20 +570,6 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
       </CardHeader>
       
       <CardContent className="space-y-3 px-2 sm:px-6">
-        {/* Info about visual mode */}
-        <Alert variant="default" className="py-2 border-primary/30 bg-primary/5">
-          <Info className="h-4 w-4 text-primary" />
-          <AlertDescription className="text-xs text-primary">
-            <strong>Hướng dẫn:</strong> Click trực tiếp vào ô để chọn/bỏ chọn ngày trực. 
-            <span className="inline-flex items-center gap-1 ml-1">
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-primary text-primary-foreground">
-                <Check className="h-3 w-3" />
-              </span>
-              = đã chọn
-            </span>
-          </AlertDescription>
-        </Alert>
-
         {/* Warnings */}
         {(warnings.noAssignment.length > 0 || warnings.tooMany.length > 0 || warnings.lowStaffDays.length > 0) && (
           <div className="space-y-2">
@@ -793,17 +604,17 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
         {/* Table with proper horizontal scroll */}
         <div className="relative border rounded-md">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse" style={{ minWidth: `${200 + daysInMonth * 32}px` }}>
+            <table className="w-full text-xs border-collapse" style={{ minWidth: `${150 + daysInMonth * 28}px` }}>
               <thead className="bg-muted/50">
                 <tr className="border-b">
-                  <th className="px-1 py-1.5 text-left font-medium sticky left-0 bg-muted/50 z-20 w-8 border-r">#</th>
-                  <th className="px-2 py-1.5 text-left font-medium sticky left-8 bg-muted/50 z-20 w-40 min-w-[160px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Họ tên</th>
-                  <th className="px-1 py-1.5 text-center font-medium w-8">SL</th>
+                  <th className="px-1 py-1.5 text-left font-medium sticky left-0 bg-muted/50 z-20 w-6 border-r">#</th>
+                  <th className="px-1 py-1.5 text-left font-medium sticky left-6 bg-muted/50 z-20 w-24 min-w-[96px] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Họ tên</th>
+                  <th className="px-1 py-1.5 text-center font-medium w-6">SL</th>
                   {dayHeaders.map(({ day, isSunday }) => (
                     <th
                       key={day}
                       className={cn(
-                        "px-0 py-1.5 text-center font-medium w-8",
+                        "px-0 py-1.5 text-center font-medium w-7",
                         isSunday && "text-destructive bg-destructive/10"
                       )}
                     >
@@ -813,7 +624,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                 </tr>
                 <tr className="border-b text-[10px] text-muted-foreground bg-muted/30">
                   <td className="sticky left-0 bg-muted/30 z-20 border-r"></td>
-                  <td className="sticky left-8 bg-muted/30 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                  <td className="sticky left-6 bg-muted/30 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
                   <td></td>
                   {dayHeaders.map(({ day, isSunday, label }) => (
                     <td
@@ -827,14 +638,14 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                     </td>
                   ))}
                 </tr>
+                {/* Staff count row */}
                 <tr className="border-b bg-muted/20 text-[10px]">
                   <td className="sticky left-0 bg-muted/20 z-20 border-r"></td>
-                  <td className="sticky left-8 bg-muted/20 z-20 px-2 font-medium text-muted-foreground border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Số người</td>
+                  <td className="sticky left-6 bg-muted/20 z-20 px-1 font-medium text-muted-foreground border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Số người</td>
                   <td></td>
                   {dayHeaders.map(({ day, isSunday }) => {
                     const staffCount = getStaffCountForDay(day);
                     const isLow = staffCount > 0 && staffCount < 3;
-                    const isExact = staffCount === 3;
                     return (
                       <td
                         key={day}
@@ -842,8 +653,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                           "px-0 text-center font-medium",
                           isSunday && "bg-destructive/5",
                           isLow && "text-destructive",
-                          isExact && "text-green-600",
-                          staffCount > 3 && "text-amber-600"
+                          staffCount >= 3 && "text-green-600"
                         )}
                       >
                         {staffCount > 0 && staffCount}
@@ -872,15 +682,15 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                         hasTooMany && "bg-orange-50/50 dark:bg-orange-950/10"
                       )}
                     >
-                      <td className={cn("px-1 py-0.5 text-center sticky left-0 z-20 text-muted-foreground border-r w-8", rowBg)}>
+                      <td className={cn("px-1 py-0.5 text-center sticky left-0 z-20 text-muted-foreground border-r", rowBg)}>
                         {index + 1}
                       </td>
                       <td 
-                        className={cn("px-2 py-0.5 sticky left-8 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group w-40", rowBg)} 
+                        className={cn("px-1 py-0.5 sticky left-6 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group", rowBg)} 
                         title={user.full_name}
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <span className="truncate">{user.full_name}</span>
+                          <span className="truncate max-w-[80px]">{user.full_name}</span>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -894,7 +704,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                       </td>
                       <td className="px-1 py-0.5 text-center">
                         <span className={cn(
-                          "inline-flex items-center justify-center h-5 min-w-[18px] px-1 rounded text-[11px] font-medium",
+                          "inline-flex items-center justify-center h-4 min-w-[14px] px-0.5 rounded text-[10px] font-medium",
                           dutyCount === 0 && "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
                           dutyCount > 0 && dutyCount <= 5 && "bg-primary/10 text-primary",
                           dutyCount > 5 && "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
@@ -904,9 +714,6 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                       </td>
                       {dayHeaders.map(({ day, isSunday }) => {
                         const isChecked = selections[user.full_name]?.has(day) || false;
-                        const staffCount = getStaffCountForDay(day);
-                        const isLowStaff = staffCount > 0 && staffCount < 3 && isChecked;
-                        
                         return (
                           <td
                             key={day}
@@ -915,21 +722,11 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
                               isSunday && "bg-destructive/5"
                             )}
                           >
-                            <button
-                              type="button"
-                              onClick={() => toggleSelection(user.full_name, day)}
-                              className={cn(
-                                "w-6 h-6 rounded-md flex items-center justify-center transition-all duration-150 mx-auto",
-                                "hover:ring-2 hover:ring-primary/50 focus:outline-none focus:ring-2 focus:ring-primary",
-                                isChecked 
-                                  ? "bg-primary text-primary-foreground shadow-sm" 
-                                  : "bg-muted/30 hover:bg-muted/60 text-transparent",
-                                isLowStaff && "ring-2 ring-destructive/50"
-                              )}
-                              title={isChecked ? 'Bỏ chọn' : 'Chọn trực'}
-                            >
-                              {isChecked && <Check className="h-3.5 w-3.5" />}
-                            </button>
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={() => toggleSelection(user.full_name, day)}
+                              className="h-4 w-4"
+                            />
                           </td>
                         );
                       })}
@@ -941,7 +738,7 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
           </div>
         </div>
         
-        {visibleUsers.length === 0 && dutyListUsers.length > 0 && (
+        {visibleUsers.length === 0 && users.length > 0 && (
           <div className="text-center py-6 text-muted-foreground">
             <EyeOff className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">Tất cả người dùng đang bị ẩn</p>
@@ -951,6 +748,11 @@ export function DutyScheduleManager({ selectedMonth, onSaveComplete }: DutySched
           </div>
         )}
         
+        {users.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            Chưa có tài khoản nào. Vui lòng thêm tài khoản trong phần Quản lý người dùng.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

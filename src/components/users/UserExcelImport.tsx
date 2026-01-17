@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { classes } from '@/data/mockData';
-import { validatePhone, validateName, validateEmail, sanitizeCSVField } from '@/lib/validation';
 
 interface ImportResult {
   success: number;
@@ -108,7 +107,7 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
       for (let i = 1; i < dataLines.length; i++) {
         // Xử lý giá trị có dấu ngoặc kép
         const rawValues = dataLines[i].split(separator);
-        const values = rawValues.map(v => sanitizeCSVField(v.trim().replace(/^"|"$/g, '')));
+        const values = rawValues.map(v => v.trim().replace(/^"|"$/g, ''));
         
         if (values.length < 4) {
           result.failed++;
@@ -129,31 +128,9 @@ export function UserExcelImport({ onImportComplete }: UserExcelImportProps) {
           continue;
         }
 
-        // Validate email format
-        if (!validateEmail(email)) {
+        if (password.length < 6) {
           result.failed++;
-          result.errors.push(`Dòng ${i + 1}: Email không hợp lệ`);
-          continue;
-        }
-
-        // Validate password length
-        if (password.length < 6 || password.length > 100) {
-          result.failed++;
-          result.errors.push(`Dòng ${i + 1}: Mật khẩu phải có từ 6 đến 100 ký tự`);
-          continue;
-        }
-
-        // Validate full name
-        if (!validateName(fullName)) {
-          result.failed++;
-          result.errors.push(`Dòng ${i + 1}: Họ tên không hợp lệ (2-100 ký tự, chỉ chữ cái)`);
-          continue;
-        }
-
-        // Validate phone if provided
-        if (phone && !validatePhone(phone)) {
-          result.failed++;
-          result.errors.push(`Dòng ${i + 1}: Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)`);
+          result.errors.push(`Dòng ${i + 1}: Mật khẩu phải có ít nhất 6 ký tự`);
           continue;
         }
 

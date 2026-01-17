@@ -395,21 +395,7 @@ export type Database = {
       }
     }
     Views: {
-      public_profiles: {
-        Row: {
-          full_name: string | null
-          id: string | null
-        }
-        Insert: {
-          full_name?: string | null
-          id?: string | null
-        }
-        Update: {
-          full_name?: string | null
-          id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       get_email_by_login: { Args: { login_input: string }; Returns: string }

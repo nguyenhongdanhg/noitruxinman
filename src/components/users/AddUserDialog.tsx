@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { classes } from '@/data/mockData';
 import { Loader2 } from 'lucide-react';
-import { validatePhone, validateName, validateEmail } from '@/lib/validation';
 
 interface AddUserDialogProps {
   open: boolean;
@@ -35,7 +34,6 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
     if (!email || !password || !fullName) {
       toast({
         title: 'Thiếu thông tin',
@@ -45,41 +43,10 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
       return;
     }
 
-    // Validate email format
-    if (!validateEmail(email)) {
-      toast({
-        title: 'Email không hợp lệ',
-        description: 'Vui lòng nhập địa chỉ email hợp lệ',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Validate password length
-    if (password.length < 6 || password.length > 100) {
+    if (password.length < 6) {
       toast({
         title: 'Mật khẩu không hợp lệ',
-        description: 'Mật khẩu phải có từ 6 đến 100 ký tự',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Validate full name
-    if (!validateName(fullName)) {
-      toast({
-        title: 'Họ tên không hợp lệ',
-        description: 'Họ tên phải từ 2-100 ký tự và chỉ chứa chữ cái',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Validate phone number if provided
-    if (phone && !validatePhone(phone)) {
-      toast({
-        title: 'Số điện thoại không hợp lệ',
-        description: 'Vui lòng nhập số điện thoại Việt Nam (10 số, bắt đầu bằng 0)',
+        description: 'Mật khẩu phải có ít nhất 6 ký tự',
         variant: 'destructive',
       });
       return;
