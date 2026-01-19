@@ -100,19 +100,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  // Sync students from database
+  // Sync students from database - use JSON comparison to prevent infinite loops
   useEffect(() => {
-    if (dbStudents && dbStudents.length > 0) {
+    const currentStudentsJson = JSON.stringify(students);
+    const dbStudentsJson = JSON.stringify(dbStudents);
+    if (dbStudents && dbStudentsJson !== currentStudentsJson) {
       setStudents(dbStudents);
     }
-  }, [dbStudents]);
+  }, [dbStudents]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync reports from database
+  // Sync reports from database - use JSON comparison to prevent infinite loops
   useEffect(() => {
-    if (dbReports) {
+    const currentReportsJson = JSON.stringify(reports);
+    const dbReportsJson = JSON.stringify(dbReports);
+    if (dbReports && dbReportsJson !== currentReportsJson) {
       setReports(dbReports);
     }
-  }, [dbReports]);
+  }, [dbReports]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem('teachers');
