@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { Student, Teacher, AttendanceRecord, Report } from '@/types';
 import { mockTeachers, classes, schoolInfo } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,13 +8,13 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AppContextType {
   students: Student[];
-  setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
+  setStudents: (students: Student[]) => void;
   teachers: Teacher[];
   setTeachers: React.Dispatch<React.SetStateAction<Teacher[]>>;
   attendanceRecords: AttendanceRecord[];
   setAttendanceRecords: React.Dispatch<React.SetStateAction<AttendanceRecord[]>>;
   reports: Report[];
-  setReports: React.Dispatch<React.SetStateAction<Report[]>>;
+  setReports: (reports: Report[]) => void;
   currentUser: { id: string; name: string };
   schoolInfo: typeof schoolInfo;
   classes: typeof classes;
@@ -35,7 +35,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
   // Fetch students directly in AppContext to avoid circular dependency
-  const { data: dbStudents = [], isLoading: isLoadingStudents, refetch: refetchStudents } = useQuery({
+  const { data: dbStudents = [], isLoading: isLoadingStudents, refetch: refetchStudentsQuery } = useQuery({
     queryKey: ['students'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -63,7 +63,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
 
   // Fetch reports directly in AppContext
-  const { data: dbReports = [], isLoading: isLoadingReports, refetch: refetchReports } = useQuery({
+  const { data: dbReports = [], isLoading: isLoadingReports, refetch: refetchReportsQuery } = useQuery({
     queryKey: ['attendance-reports'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -94,19 +94,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  // Use dbStudents directly - no intermediate state needed for students from DB
-  const students = dbStudents;
-  const setStudents = () => {
-    // This is a no-op since students come from the database
-    // Kept for backward compatibility with components that might call it
-  };
-  
-  // Use dbReports directly - no intermediate state needed for reports from DB
-  const reports = dbReports;
-  const setReports = () => {
-    // This is a no-op since reports come from the database
-    // Kept for backward compatibility
-  };
+  // Stable refetch functions
+  const refetchStudents = useCallback(() => {
+    refetchStudentsQuery();
+  }, [refetchStudentsQuery]);
+
+  const refetchReports = useCallback(() => {
+    refetchReportsQuery();
+  }, [refetchReportsQuery]);
+
+  // No-op setters for backward compatibility
+  const setStudents = useCallback((_students: Student[]) => {
+    // No-op since students come from the database
+  }, []);
+
+  const setReports = useCallback((_reports: Report[]) => {
+    // No-op since reports come from the database
+  }, []);
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem('teachers');
@@ -195,13 +199,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const createReport = async (report: Omit<Report, 'id' | 'createdAt'> & { classId?: string }): Promise<Report> => {
+  const createReport = useCallback(async (report: Omit<Report, 'id' | 'createdAt'> & { classId?: string }): Promise<Report> => {
     return createReportMutation.mutateAsync(report);
-  };
+  }, [createReportMutation]);
 
-  const deleteReport = async (reportId: string): Promise<void> => {
+  const deleteReport = useCallback(async (reportId: string): Promise<void> => {
     return deleteReportMutation.mutateAsync(reportId);
-  };
+  }, [deleteReportMutation]);
 
   const isCreatingReport = createReportMutation.isPending;
 
@@ -214,14 +218,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [attendanceRecords]);
 
   const contextValue = useMemo(() => ({
-    students,
-    setStudents: setStudents as React.Dispatch<React.SetStateAction<Student[]>>,
+    students: dbStudents,
+    setStudents,
     teachers,
     setTeachers,
     attendanceRecords,
     setAttendanceRecords,
-    reports,
-    setReports: setReports as React.Dispatch<React.SetStateAction<Report[]>>,
+    reports: dbReports,
+    setReports,
     currentUser,
     schoolInfo,
     classes,
@@ -232,7 +236,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createReport,
     deleteReport,
     isCreatingReport,
-  }), [students, teachers, attendanceRecords, reports, currentUser, isLoadingStudents, isLoadingReports, isCreatingReport]);
+  }), [
+    dbStudents,
+    setStudents,
+    teachers,
+    attendanceRecords,
+    dbReports,
+    setReports,
+    currentUser,
+    isLoadingStudents,
+    refetchStudents,
+    isLoadingReports,
+    refetchReports,
+    createReport,
+    deleteReport,
+    isCreatingReport,
+  ]);
 
   return (
     <AppContext.Provider value={contextValue}>
