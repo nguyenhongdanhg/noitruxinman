@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { Student, Teacher, AttendanceRecord, Report } from '@/types';
 import { mockTeachers, classes, schoolInfo } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,12 +33,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  // Students state
-  const [students, setStudents] = useState<Student[]>([]);
-  
-  // Reports state  
-  const [reports, setReports] = useState<Report[]>([]);
 
   // Fetch students directly in AppContext to avoid circular dependency
   const { data: dbStudents = [], isLoading: isLoadingStudents, refetch: refetchStudents } = useQuery({
@@ -100,23 +94,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  // Sync students from database - use JSON comparison to prevent infinite loops
-  useEffect(() => {
-    const currentStudentsJson = JSON.stringify(students);
-    const dbStudentsJson = JSON.stringify(dbStudents);
-    if (dbStudents && dbStudentsJson !== currentStudentsJson) {
-      setStudents(dbStudents);
-    }
-  }, [dbStudents]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync reports from database - use JSON comparison to prevent infinite loops
-  useEffect(() => {
-    const currentReportsJson = JSON.stringify(reports);
-    const dbReportsJson = JSON.stringify(dbReports);
-    if (dbReports && dbReportsJson !== currentReportsJson) {
-      setReports(dbReports);
-    }
-  }, [dbReports]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Use dbStudents directly - no intermediate state needed for students from DB
+  const students = dbStudents;
+  const setStudents = () => {
+    // This is a no-op since students come from the database
+    // Kept for backward compatibility with components that might call it
+  };
+  
+  // Use dbReports directly - no intermediate state needed for reports from DB
+  const reports = dbReports;
+  const setReports = () => {
+    // This is a no-op since reports come from the database
+    // Kept for backward compatibility
+  };
 
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem('teachers');
@@ -129,10 +119,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
 
   // Use authenticated user info if available, otherwise fallback
-  const currentUser = {
+  const currentUser = useMemo(() => ({
     id: user?.id || '1',
     name: profile?.full_name || 'Nguyễn Hồng Dân'
-  };
+  }), [user?.id, profile?.full_name]);
 
   // Create report mutation
   const createReportMutation = useMutation({
@@ -215,8 +205,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const isCreatingReport = createReportMutation.isPending;
 
-  // No longer save students or reports to localStorage - they come from database
-
   useEffect(() => {
     localStorage.setItem('teachers', JSON.stringify(teachers));
   }, [teachers]);
@@ -225,29 +213,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
   }, [attendanceRecords]);
 
+  const contextValue = useMemo(() => ({
+    students,
+    setStudents: setStudents as React.Dispatch<React.SetStateAction<Student[]>>,
+    teachers,
+    setTeachers,
+    attendanceRecords,
+    setAttendanceRecords,
+    reports,
+    setReports: setReports as React.Dispatch<React.SetStateAction<Report[]>>,
+    currentUser,
+    schoolInfo,
+    classes,
+    isLoadingStudents,
+    refetchStudents,
+    isLoadingReports,
+    refetchReports,
+    createReport,
+    deleteReport,
+    isCreatingReport,
+  }), [students, teachers, attendanceRecords, reports, currentUser, isLoadingStudents, isLoadingReports, isCreatingReport]);
+
   return (
-    <AppContext.Provider
-      value={{
-        students,
-        setStudents,
-        teachers,
-        setTeachers,
-        attendanceRecords,
-        setAttendanceRecords,
-        reports,
-        setReports,
-        currentUser,
-        schoolInfo,
-        classes,
-        isLoadingStudents,
-        refetchStudents,
-        isLoadingReports,
-        refetchReports,
-        createReport,
-        deleteReport,
-        isCreatingReport,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
