@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback, useRef } from 'react';
 import { Student, Teacher, AttendanceRecord, Report } from '@/types';
 import { mockTeachers, classes, schoolInfo } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,16 +94,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  // Stable refetch functions
-  const refetchStudents = useCallback(() => {
-    refetchStudentsQuery();
+  // Use refs to store the latest refetch functions - this ensures stability
+  const refetchStudentsRef = useRef(refetchStudentsQuery);
+  const refetchReportsRef = useRef(refetchReportsQuery);
+  
+  // Keep refs up to date
+  useEffect(() => {
+    refetchStudentsRef.current = refetchStudentsQuery;
   }, [refetchStudentsQuery]);
-
-  const refetchReports = useCallback(() => {
-    refetchReportsQuery();
+  
+  useEffect(() => {
+    refetchReportsRef.current = refetchReportsQuery;
   }, [refetchReportsQuery]);
 
-  // No-op setters for backward compatibility
+  // Stable refetch functions using refs - empty deps means never changes
+  const refetchStudents = useCallback(() => {
+    refetchStudentsRef.current();
+  }, []);
+
+  const refetchReports = useCallback(() => {
+    refetchReportsRef.current();
+  }, []);
+
+  // No-op setters for backward compatibility - stable with empty deps
   const setStudents = useCallback((_students: Student[]) => {
     // No-op since students come from the database
   }, []);
@@ -199,13 +212,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Use refs for mutation functions to ensure stability
+  const createReportMutateRef = useRef(createReportMutation.mutateAsync);
+  const deleteReportMutateRef = useRef(deleteReportMutation.mutateAsync);
+  
+  // Keep mutation refs up to date
+  useEffect(() => {
+    createReportMutateRef.current = createReportMutation.mutateAsync;
+  }, [createReportMutation.mutateAsync]);
+  
+  useEffect(() => {
+    deleteReportMutateRef.current = deleteReportMutation.mutateAsync;
+  }, [deleteReportMutation.mutateAsync]);
+
+  // Stable mutation callbacks using refs - empty deps means never changes
   const createReport = useCallback(async (report: Omit<Report, 'id' | 'createdAt'> & { classId?: string }): Promise<Report> => {
-    return createReportMutation.mutateAsync(report);
-  }, [createReportMutation]);
+    return createReportMutateRef.current(report);
+  }, []);
 
   const deleteReport = useCallback(async (reportId: string): Promise<void> => {
-    return deleteReportMutation.mutateAsync(reportId);
-  }, [deleteReportMutation]);
+    return deleteReportMutateRef.current(reportId);
+  }, []);
 
   const isCreatingReport = createReportMutation.isPending;
 
@@ -217,6 +244,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
   }, [attendanceRecords]);
 
+  // Only include truly stable dependencies
   const contextValue = useMemo(() => ({
     students: dbStudents,
     setStudents,
@@ -238,19 +266,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isCreatingReport,
   }), [
     dbStudents,
-    setStudents,
+    dbReports,
     teachers,
     attendanceRecords,
-    dbReports,
-    setReports,
     currentUser,
     isLoadingStudents,
-    refetchStudents,
     isLoadingReports,
+    isCreatingReport,
+    // These are stable (empty deps useCallback)
+    setStudents,
+    setReports,
+    refetchStudents,
     refetchReports,
     createReport,
     deleteReport,
-    isCreatingReport,
   ]);
 
   return (
