@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface DbStudent {
   id: string;
@@ -122,9 +122,10 @@ function appToDbStudentUpdate(student: Partial<Student>): DbStudentUpdate {
 
 export function useStudents() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch students from database
+  // Fetch students from database - only when user is authenticated
   const { data: students = [], isLoading, error, refetch } = useQuery({
     queryKey: ['students'],
     queryFn: async () => {
@@ -136,6 +137,7 @@ export function useStudents() {
       if (error) throw error;
       return (data || []).map(dbToAppStudent);
     },
+    enabled: !!user, // Only run query when user is authenticated
   });
 
   // Add student mutation

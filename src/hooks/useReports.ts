@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Report } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DbReport {
   id: string;
@@ -65,6 +66,7 @@ const appToDbReport = (report: Omit<Report, 'id' | 'createdAt'> & { classId?: st
 export function useReports() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: reports = [], isLoading, refetch } = useQuery({
     queryKey: ['attendance-reports'],
@@ -82,6 +84,7 @@ export function useReports() {
 
       return (data as unknown as DbReport[]).map(dbToAppReport);
     },
+    enabled: !!user, // Only run query when user is authenticated
   });
 
   const createReport = useMutation({
