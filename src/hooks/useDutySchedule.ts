@@ -41,7 +41,7 @@ export function useDutySchedule() {
     enabled: !!user,
   });
 
-  // Fetch duty schedules for a specific month
+  // Fetch duty schedules for a specific month - only when user is authenticated
   const useDutyByMonth = (year: number, month: number) => {
     const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
     const endDate = format(new Date(year, month, 0), 'yyyy-MM-dd');
@@ -59,10 +59,11 @@ export function useDutySchedule() {
         if (error) throw error;
         return data as DutySchedule[];
       },
+      enabled: !!user,
     });
   };
 
-  // Fetch today's duty
+  // Fetch today's duty - only when user is authenticated
   const { data: todayDuty, isLoading: isLoadingToday } = useQuery({
     queryKey: ['dutySchedules', 'today'],
     queryFn: async () => {
@@ -75,9 +76,10 @@ export function useDutySchedule() {
       if (error) throw error;
       return data as DutySchedule[];
     },
+    enabled: !!user,
   });
 
-  // Fetch duty by specific date
+  // Fetch duty by specific date - only when user is authenticated
   const useDutyByDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     
@@ -92,6 +94,7 @@ export function useDutySchedule() {
         if (error) throw error;
         return data as DutySchedule[];
       },
+      enabled: !!user,
     });
   };
 
